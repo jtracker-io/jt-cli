@@ -1,7 +1,8 @@
-# JTracker
+# JTracker CLI
 
-JTracker is a job tracking, scheduling and execution system with client-server architecture for distributed
-computational workflows. All jobs are centrally managed by a JTracker server, JTracker executors (the clients)
+JTracker is a scientific workflow management system. It provides workflow authoring, 
+sharing and execution with full provenance tracking. JTracker system is designed as client-server architecture for distributed
+compute environments. All jobs are centrally managed by a JTracker server, JTracker executors (the clients)
 request jobs/tasks from the server and execute them on compute nodes the executors reside.
 
 ## Installation
@@ -11,9 +12,9 @@ HPC node, or may be just your laptop, or all of them at the same time.
 
 ```
 # clone the source code
-git clone https://github.com/icgc-dcc/jtracker.git
+git clone https://github.com/jthub/jt-cli.git
 
-cd jtracker
+cd jt-cli
 
 # install pip3 if not installed already, for Debian or Ubuntu platform do this:
 sudo apt-get install python3-pip
