@@ -43,7 +43,7 @@ setup(
     version=version,
     description='Command line client for JTracker',
     license='Apache License, Version 2.0',
-    url='https://github.com/icgc-dcc/jtracker',
+    url='https://github.com/jthub/jt-cli',
     author='Junjun Zhang',
     author_email='junjun.ca@gmail.com',
     packages=find_packages(exclude=["*.tests", "*.tests.*", "tests.*", "tests"]),
@@ -54,6 +54,7 @@ setup(
         "Operating System :: OS Independent",
     ],
     install_requires=install_reqs,
+    python_requires='>=3',
     tests_require=tests_require,
     cmdclass={'test': PyTest},
     entry_points={

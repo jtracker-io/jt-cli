@@ -11,19 +11,12 @@ JTracker client needs to be installed on a workflow task execution host. It may 
 HPC node, or may be just your laptop, or all of them at the same time.
 
 ```
-# clone the source code
-git clone https://github.com/jthub/jt-cli.git
-
-cd jt-cli
-
+# JTracker cli requires Python3
 # install pip3 if not installed already, for Debian or Ubuntu platform do this:
 sudo apt-get install python3-pip
 
-# install packages, you may need to run it with sudo
-pip3 install -r requirements.txt
-
-# install JT client, you may need to run it with sudo
-python3 setup.py install
+# install jtracker, you may need to run it with sudo
+pip3 install jtracker
 
 # if you see usage information with the follow command, you are ready to go
 jt --help
