@@ -29,6 +29,9 @@ test run should give you a clear picture how JTracker is designed and how it may
 
 This test run uses a demo JT server running at http://159.203.53.247.
 
+You can also set up your own JTracker Server using Docker Compose, to do so please follow instructions
+at: https://github.com/jthub/jt-server-deploy.
+
 Note: please **do not** upload sensitive data when following along the steps.
 
 ### Register a user account
