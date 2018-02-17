@@ -106,15 +106,26 @@ class Worker(object):
         success = True  # assume task complete
         try:
             #print("task command is: %s %s" % (cmd, arg))
-            r = subprocess.check_output("%s %s" % (cmd, arg), shell=True)
+            p = subprocess.Popen(["%s %s" % (cmd, arg)], stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True)
+            stdout, stderr = p.communicate()
         except Exception as e:
             success = False  # task failed
+
+        if p.returncode != 0 or success is False:
+            success = False
+            with open(os.path.join(self.task_dir, 'stdout.txt'), 'w') as o:
+                o.write(stdout.decode("utf-8") )
+            with open(os.path.join(self.task_dir, 'stderr.txt'), 'w') as e:
+                e.write(stderr.decode("utf-8") )
 
         time_end = int(time())
 
         # get output.json
-        with open(os.path.join(self.task_dir, 'output.json'), 'r') as f:
-            output = json.load(f)
+        try:
+            with open(os.path.join(self.task_dir, 'output.json'), 'r') as f:
+                output = json.load(f)
+        except:
+            output = dict()  # when there is no output.json file
 
         _jt_ = {
             'jtcli_version': ver,
@@ -142,6 +153,7 @@ class Worker(object):
             exit(0)
         else:
             print('Task failed, task: %s, job: %s' % (task_name, job_id))
+            print('STDERR: %s' % stderr.decode("utf-8") )
             self.scheduler.task_failed(job_id=job_id,
                                        task_name=task_name,
                                        output=output)
