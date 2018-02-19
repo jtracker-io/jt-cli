@@ -15,8 +15,8 @@ HPC node, or may be just your laptop, or all of them at the same time.
 # install pip3 if not installed already, for Debian or Ubuntu platform do this:
 sudo apt-get install python3-pip
 
-# install jtracker, you may need to run it with sudo
-pip3 install jtracker
+# install jtracker
+sudo pip3 install jtracker   # pip3 install --upgrade jtracker  # use this to upgrade jtracker to latest version
 
 # if you see usage information with the follow command, you are ready to go
 jt --help
