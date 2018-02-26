@@ -27,6 +27,8 @@ jt --help
 JTracker is in early phase of development, features and behaviours may change as we advance forward. However this quick
 test run should give you a clear picture how JTracker is designed and how it may fit in your workflow use cases.
 
+**Before proceeding further, please make sure you have installed (or upgraded to) the latest version of JT-CLI tool.**
+
 This test run uses a demo JT server running at http://159.203.53.247.
 
 You can also set up your own JTracker Server using Docker Compose, to do so please follow instructions
