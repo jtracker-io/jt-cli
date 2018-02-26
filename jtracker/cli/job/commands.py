@@ -71,7 +71,7 @@ def get(ctx, queue_id, status, job_id, queue_owner):
 
 @click.command()
 @click.option('-q', '--queue-id', required=True, help='Job queue ID')
-@click.option('-j', '--job-json', required=True, help='Job JSON')
+@click.option('-j', '--job-json', required=True, help='Job JSON string or file')
 @click.option('-o', '--queue-owner', help='Queue owner account name')
 @click.pass_context
 def add(ctx, queue_id, job_json, queue_owner):
@@ -84,7 +84,16 @@ def add(ctx, queue_id, job_json, queue_owner):
 
     url = "%s/jobs/owner/%s/queue/%s" % (jess_url, queue_owner, queue_id)
 
-    job = json.loads(job_json)
+    try:  # try to decode as JSON first
+        job = json.loads(job_json)
+    except:
+        # try treat it as file
+        try:  #
+            with open(job_json, 'r') as f:
+                job = json.load(f)
+        except:
+            click.echo('-j must be supplied with a valid JSON string or a JSON file')
+            ctx.abort()
 
     r = requests.post(url=url, json=job)
     if r.status_code != 200:

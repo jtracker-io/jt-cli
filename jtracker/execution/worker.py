@@ -135,6 +135,7 @@ class Worker(object):
             'queue_id': self.queue_id,
             'node_id': self.node_id,
             'task_dir': self.task_dir,
+            'state': 'completed' if success else 'failed',
             'wall_time': {
                 'start': time_start,
                 'end': time_end
