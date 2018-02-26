@@ -1,4 +1,5 @@
 import os
+import sys
 import zipfile
 import tempfile
 from io import BytesIO
@@ -43,7 +44,6 @@ def work(worker):
 class Executor(object):
     def __init__(self, jt_home=None, jt_account=None,
                  ams_server=None, wrs_server=None, jess_server=None,
-                 executor_id=None,
                  queue_id=None,
                  workflow_name=None,
                  job_file=None,  # when job_file is provided, it's local mode, no tracking from the server side
@@ -54,12 +54,9 @@ class Executor(object):
 
         # TODO: will need to verify jt_account
 
-        # allow user specify executor_id for resuming,
-        # TODO: has to check to make sure there is no such executor currently running
-        #       need some server side work to support this
-        self._id = executor_id if executor_id else str(uuid4())
-
         self._jt_home = jt_home
+        self._account_id = None
+        self._queue_id = queue_id
 
         self._parallel_jobs = parallel_jobs
         self._max_jobs = max_jobs
@@ -68,31 +65,38 @@ class Executor(object):
         self._ran_jobs = 0
         self._continuous_run = continuous_run
 
+        self._running_jobs = []
+        self._worker_processes = {}
+
         # params for server mode
-        if queue_id and job_file is None:
+        if self.queue_id and job_file is None:
+            # the logic is a bit bad here, we need to get account_id for init jthome, and get node_id
             self._scheduler = JessScheduler(jess_server=jess_server,
                                             wrs_server=wrs_server,
                                             ams_server=ams_server,
                                             jt_account=jt_account,
                                             queue_id=queue_id,
                                             job_id=job_id,  # optionally specify which job to run
-                                            executor_id=self.id)
+                                            )
 
-        # local mode if supplied
-        elif job_file and queue_id is None:
+            self._account_id = self.scheduler.account_id
+
+            # init jt_home dir
+            self._init_jt_home()
+
+            self._id = self.scheduler.register_executor(self.node_id)  # reset executor ID to what server side return
+
+        # local mode if supplied, local mode does NOT work
+        elif job_file and self.queue_id is None:
             self._scheduler = LocalScheduler(job_file=job_file,
                                              workflow_name=workflow_name,
                                              executor_id=self.id)
 
+            self._id = str(uuid4())  # self-assigned executor ID for local mode
+
         else:
             raise Exception('Please specify either queue_id for executing jobs on remote job queue or '
                             'job_file to run local job.')
-
-        self._running_jobs = []
-        self._worker_processes = {}
-
-        # init jt_home dir
-        self._init_jt_home()
 
         # init workflow dir
         self._init_workflow_dir()
@@ -129,11 +133,15 @@ class Executor(object):
 
     @property
     def account_id(self):
-        return self.scheduler.account_id
+        return self._account_id
 
     @property
     def node_id(self):
         return self._node_id
+
+    @property
+    def queue_id(self):
+        return self._queue_id
 
     @property
     def node_dir(self):
@@ -196,9 +204,6 @@ class Executor(object):
         click.echo('Run local job not implemented yet.')
 
     def _run_remote(self):
-        # let's register the executor to the queue first
-        # TODO: if we are going to support 'resume' an executor, we will need to check JESS for existing executor
-        #       and test whether it's resumeable
         while True:
             if self.killer.kill_now:
                 click.echo('Received interruption signal, will not pick up new job. Exit after finishing current '
@@ -313,6 +318,11 @@ class Executor(object):
                 print('Cancelling job: %s' % j.get('id'))
                 self.scheduler.cancel_job(job_id=j.get('id'))
 
+        try:
+            os.remove(os.path.join(self.executor_dir, '_state.running'))
+        except OSError:
+            pass
+
         # report summary about completed jobs and running jobs if any
         click.echo('Executed %s %s.' % (self.ran_jobs, 'job' if self.ran_jobs <= 1 else 'jobs'))
 
@@ -400,6 +410,15 @@ class Executor(object):
     def _init_executor_dir(self):
         try:
             os.makedirs(self.executor_dir)
-        except OSError as exc:  # Guard against race condition
-            if exc.errno != errno.EEXIST:
+        except OSError as e:  # Guard against race condition
+            if e.errno != errno.EEXIST:
                 raise
+
+        flags = os.O_CREAT | os.O_EXCL | os.O_WRONLY
+        try:
+            os.open(os.path.join(self.executor_dir, '_state.running'), flags)
+        except OSError as e:
+            if e.errno == errno.EEXIST:  # Exit as the executor is running.
+                click.echo('The executor: %s for queue: %s is running on this node: %s already, not start another one!'
+                      % (self.id, self.queue_id, self.node_id))
+                sys.exit(1)

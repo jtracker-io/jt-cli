@@ -9,7 +9,7 @@ class JessScheduler(Scheduler):
     Scheduler backed by JTracker Job Execution and Scheduling Services
     """
     def __init__(self, jess_server=None, wrs_server=None, ams_server=None, jt_account=None,
-                 queue_id=None, job_id=None, executor_id: str = None):
+                 queue_id=None, job_id=None):
 
         super().__init__(mode='sever')
 
@@ -20,9 +20,8 @@ class JessScheduler(Scheduler):
         self._account_id = self._get_owner_id_by_name(jt_account)
         self._queue_id = queue_id
         self._job_id = job_id
-        self._executor_id = executor_id
+        self._executor_id = None
         self._get_workflow_info()
-        self._register_executor()
 
     @property
     def jess_server(self):
@@ -216,23 +215,21 @@ class JessScheduler(Scheduler):
 
         return workflow
 
-    def _register_executor(self):
-        # JESS endpoint: /executors/owner/{owner_name}/queue/{queue_id}
-        # later we should really get executor dict by self.to_dict, dict version of the executor object
-        executor = {
-            'id': self.executor_id  # only ID field for now
-        }
+    def register_executor(self, node_id):
+        # JESS endpoint: /executors/owner/{owner_name}/queue/{queue_id}/node/{node_id}
 
-        request_url = "%s/executors/owner/%s/queue/%s" % (self.jess_server.strip('/'),
-                                                          self.jt_account, self.queue_id)
+        request_url = "%s/executors/owner/%s/queue/%s/node/%s" % (self.jess_server.strip('/'),
+                                                          self.jt_account, self.queue_id, node_id)
 
         try:
-            r = requests.post(url=request_url, json=executor)
+            r = requests.post(url=request_url)
+            self._executor_id = json.loads(r.text).get('id')  # executor id from the server
+            return self.executor_id
         except:
             raise JessNotAvailable('JESS service temporarily unavailable')
 
         if r.status_code != 200:
-            raise Exception('Failed to register the executor, please make sure it has not been registered before')
+            raise Exception(r.text)
 
     def _get_owner_id_by_name(self, owner_name):
         request_url = '%s/accounts/%s' % (self.ams_server.strip('/'), owner_name)
