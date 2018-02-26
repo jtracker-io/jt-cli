@@ -9,7 +9,7 @@ class JessScheduler(Scheduler):
     Scheduler backed by JTracker Job Execution and Scheduling Services
     """
     def __init__(self, jess_server=None, wrs_server=None, ams_server=None, jt_account=None,
-                 queue_id=None, job_id=None, node_id: str = None):
+                 queue_id=None, job_id=None):
 
         super().__init__(mode='sever')
 
@@ -20,10 +20,8 @@ class JessScheduler(Scheduler):
         self._account_id = self._get_owner_id_by_name(jt_account)
         self._queue_id = queue_id
         self._job_id = job_id
-        self._node_id = node_id
         self._executor_id = None
         self._get_workflow_info()
-        self._register_executor()
 
     @property
     def jess_server(self):
@@ -52,10 +50,6 @@ class JessScheduler(Scheduler):
     @property
     def job_id(self):
         return self._job_id
-
-    @property
-    def node_id(self):
-        return self._node_id
 
     @property
     def executor_id(self):
@@ -221,15 +215,16 @@ class JessScheduler(Scheduler):
 
         return workflow
 
-    def _register_executor(self):
+    def register_executor(self, node_id):
         # JESS endpoint: /executors/owner/{owner_name}/queue/{queue_id}/node/{node_id}
 
         request_url = "%s/executors/owner/%s/queue/%s/node/%s" % (self.jess_server.strip('/'),
-                                                          self.jt_account, self.queue_id, self.node_id)
+                                                          self.jt_account, self.queue_id, node_id)
 
         try:
             r = requests.post(url=request_url)
             self._executor_id = json.loads(r.text).get('id')  # executor id from the server
+            return self.executor_id
         except:
             raise JessNotAvailable('JESS service temporarily unavailable')
 

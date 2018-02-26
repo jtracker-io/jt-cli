@@ -68,23 +68,25 @@ class Executor(object):
         self._running_jobs = []
         self._worker_processes = {}
 
-        # init jt_home dir
-        self._init_jt_home()
-
         # params for server mode
         if self.queue_id and job_file is None:
+            # the logic is a bit bad here, we need to get account_id for init jthome, and get node_id
             self._scheduler = JessScheduler(jess_server=jess_server,
                                             wrs_server=wrs_server,
                                             ams_server=ams_server,
                                             jt_account=jt_account,
                                             queue_id=queue_id,
                                             job_id=job_id,  # optionally specify which job to run
-                                            node_id=self.node_id)
+                                            )
 
-            self._id = self.scheduler.executor_id  # reset executor ID to what server side return
             self._account_id = self.scheduler.account_id
 
-        # local mode if supplied
+            # init jt_home dir
+            self._init_jt_home()
+
+            self._id = self.scheduler.register_executor(self.node_id)  # reset executor ID to what server side return
+
+        # local mode if supplied, local mode does NOT work
         elif job_file and self.queue_id is None:
             self._scheduler = LocalScheduler(job_file=job_file,
                                              workflow_name=workflow_name,
@@ -417,5 +419,6 @@ class Executor(object):
             os.open(os.path.join(self.executor_dir, '_state.running'), flags)
         except OSError as e:
             if e.errno == errno.EEXIST:  # Exit as the executor is running.
-                print('The executor for queue: %s is running on this node already, not start another one!' % self.queue_id)
+                click.echo('The executor: %s for queue: %s is running on this node: %s already, not start another one!'
+                      % (self.id, self.queue_id, self.node_id))
                 sys.exit(1)
