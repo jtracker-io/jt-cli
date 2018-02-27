@@ -7,7 +7,7 @@ import requests
 @click.option('-q', '--queue-id', required=True, help='Job queue ID')
 @click.option('-o', '--owner', help='Queue owner account name')
 @click.option('-s', '--status', help='Job status',type=click.Choice(
-    ['running', 'queued', 'completed', 'failed', 'suspended', 'cancelled']))
+    ['running', 'queued', 'completed', 'failed', 'suspended', 'cancelled', 'submitted', 'retry']))
 @click.pass_context
 def ls(ctx, queue_id, status, owner):
     """
@@ -92,7 +92,7 @@ def add(ctx, queue_id, job_json, queue_owner):
             with open(job_json, 'r') as f:
                 job = json.load(f)
         except:
-            click.echo('-j must be supplied with a valid JSON string or a JSON file')
+            click.echo('"-j" must be supplied with a valid JSON string or file')
             ctx.abort()
 
     r = requests.post(url=url, json=job)
