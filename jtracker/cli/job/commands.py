@@ -76,7 +76,7 @@ def get(ctx, queue_id, status, job_id, queue_owner):
 @click.pass_context
 def delete(ctx, queue_id, job_id, queue_owner):
     """
-    Get workflow job in specified queue with specified job_id
+    Delete workflow job that is 'queued' in specified queue with specified job_id
     """
 
     jess_url = ctx.obj.get('JT_CONFIG').get('jess_server')
