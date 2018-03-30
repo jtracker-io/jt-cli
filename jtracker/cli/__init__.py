@@ -130,6 +130,7 @@ def job(ctx):
 # job subcommands
 job.add_command(job_commands.ls)
 job.add_command(job_commands.get)
+job.add_command(job_commands.delete)
 job.add_command(job_commands.add)
 
 
