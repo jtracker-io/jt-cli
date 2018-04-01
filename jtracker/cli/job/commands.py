@@ -7,7 +7,7 @@ import requests
 @click.option('-q', '--queue-id', required=True, help='Job queue ID')
 @click.option('-o', '--owner', help='Queue owner account name')
 @click.option('-s', '--status', help='Job status',type=click.Choice(
-    ['running', 'queued', 'completed', 'failed', 'suspended', 'cancelled', 'submitted', 'retry']))
+    ['running', 'queued', 'completed', 'failed', 'suspended', 'cancelled', 'submitted', 'retry', 'resume']))
 @click.pass_context
 def ls(ctx, queue_id, status, owner):
     """
@@ -46,7 +46,7 @@ def ls(ctx, queue_id, status, owner):
 @click.option('-j', '--job-id', required=True, help='Job ID')
 @click.option('-o', '--queue-owner', help='Queue owner account name')
 @click.option('-s', '--status', help='Job status',type=click.Choice(
-    ['running', 'queued', 'completed', 'failed', 'suspended', 'cancelled']))
+    ['running', 'queued', 'completed', 'failed', 'suspended', 'cancelled', 'submitted', 'retry', 'resume']))
 @click.pass_context
 def get(ctx, queue_id, status, job_id, queue_owner):
     """
@@ -86,7 +86,33 @@ def delete(ctx, queue_id, job_id, queue_owner):
 
     r = requests.delete(url)
     if r.status_code != 200:
-        click.echo('Get job for: %s failed: %s' % (queue_owner, r.text))
+        click.echo('Failed: %s' % r.text)
+        ctx.abort()
+    else:
+        click.echo(r.text)
+
+
+@click.command()
+@click.option('-q', '--queue-id', required=True, help='Job queue ID')
+@click.option('-j', '--job-id', required=True, help='Job ID')
+@click.option('-o', '--queue-owner', help='Queue owner account name')
+@click.pass_context
+def resume(ctx, queue_id, job_id, queue_owner):
+    """
+    Resume workflow job that is 'failed/cancelled/suspended' in specified queue with specified job_id
+    """
+
+    jess_url = ctx.obj.get('JT_CONFIG').get('jess_server')
+    queue_owner = queue_owner if queue_owner else ctx.obj.get('JT_CONFIG').get('jt_account')
+
+    url = "%s/jobs/owner/%s/queue/%s/job/%s/action" % (jess_url, queue_owner, queue_id, job_id)
+    request_body = {
+        'action': 'resume'
+    }
+
+    r = requests.put(url, json=request_body)
+    if r.status_code != 200:
+        click.echo('Failed: %s' % r.text)
         ctx.abort()
     else:
         click.echo(r.text)
