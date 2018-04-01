@@ -109,10 +109,13 @@ class Worker(object):
             p = subprocess.Popen(["%s %s" % (cmd, arg)], stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True)
             stdout, stderr = p.communicate()
         except Exception as e:
-            success = False  # task failed
+            success = False
 
         if p.returncode != 0 or success is False:
-            success = False
+            if 'KeyboardInterrupt' in stderr.decode("utf-8"):
+                success = None  # task cancelled
+            else:
+                success = False  # task failed
             with open(os.path.join(self.task_dir, 'stdout.txt'), 'w') as o:
                 o.write(stdout.decode("utf-8") )
             with open(os.path.join(self.task_dir, 'stderr.txt'), 'w') as e:
@@ -135,7 +138,7 @@ class Worker(object):
             'queue_id': self.queue_id,
             'node_id': self.node_id,
             'task_dir': self.task_dir,
-            'state': 'completed' if success else 'failed',
+            'state': 'completed' if success else 'failed' if success is False else 'cancelled',
             'wall_time': {
                 'start': time_start,
                 'end': time_end
@@ -152,6 +155,9 @@ class Worker(object):
                                           task_name=task_name,
                                           output=output)
             exit(0)
+        elif success is None:
+            print('Task cancelled, task: %s, job: %s' % (task_name, job_id))
+            exit(2)
         else:
             print('Task failed, task: %s, job: %s' % (task_name, job_id))
             print('STDERR: %s' % stderr.decode("utf-8") )
