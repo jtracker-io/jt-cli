@@ -32,7 +32,7 @@ test run should give you a clear picture how JTracker is designed and how it may
 This test run uses a demo JT server running at http://159.203.53.247.
 
 You can also set up your own JTracker Server using Docker Compose, to do so please follow instructions
-at: https://github.com/jthub/jt-server-deploy.
+at: https://github.com/jtracker-io/jt-server-deploy.
 
 Note: please **do not** upload sensitive data when following along the steps.
 
@@ -54,14 +54,14 @@ jt user login -u your_account_name
 ### Register a JT workflow under your account
 
 The workflow we use for this demo is available here:
- https://github.com/jthub/demo-workflows/tree/master/webpage-word-count.
+ https://github.com/jtracker-io/demo-workflows/tree/master/webpage-word-count.
 
 The workflow git release tag is 'webpage-word-count.0.0.8':
- https://github.com/jthub/demo-workflows/releases/tag/webpage-word-count.0.0.8
+ https://github.com/jtracker-io/demo-workflows/releases/tag/webpage-word-count.0.0.8
 
 ```
 jt wf register --git-server https://github.com \
-               --git-account jthub \
+               --git-account jtracker-io \
                --git-repo demo-workflows \
                --git-path webpage-word-count \
                --git-tag webpage-word-count.0.0.8 \
