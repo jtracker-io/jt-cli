@@ -1,4 +1,4 @@
 jt_account: user1  # demo user
-ams_server: http://159.203.53.247/api/jt-ams/v0.1  # demo server
-wrs_server: http://159.203.53.247/api/jt-wrs/v0.1  # demo server
-jess_server: http://159.203.53.247/api/jt-jess/v0.1  # demo server
+ams_server: https://jthub.co/api/jt-ams/v0.1  # demo server
+wrs_server: https://jthub.co/api/jt-wrs/v0.1  # demo server
+jess_server: https://jthub.co/api/jt-jess/v0.1  # demo server
