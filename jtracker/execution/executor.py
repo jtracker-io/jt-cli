@@ -48,6 +48,7 @@ class Executor(object):
                  workflow_name=None,
                  job_file=None,  # when job_file is provided, it's local mode, no tracking from the server side
                  job_id=None,  # can optionally specify which job to run, not applicable when job_file specified
+                 min_disk=None, # minimally require disk space (in bytes) for launching task execution
                  parallel_jobs=1, parallel_workers=1, sleep_interval=5, max_jobs=0, continuous_run=False):
 
         self._killer = GracefulKiller()
@@ -60,6 +61,7 @@ class Executor(object):
 
         self._parallel_jobs = parallel_jobs
         self._max_jobs = max_jobs
+        self._min_disk = min_disk
         self._parallel_workers = parallel_workers
         self._sleep_interval = sleep_interval
         self._ran_jobs = 0
@@ -174,6 +176,10 @@ class Executor(object):
         return self._max_jobs
 
     @property
+    def min_disk(self):
+        return self._min_disk
+
+    @property
     def parallel_workers(self):
         return self._parallel_workers
 
@@ -208,6 +214,11 @@ class Executor(object):
             if self.killer.kill_now:
                 click.echo('Received interruption signal, will not pick up new job. Exit after finishing current '
                            'running job (if any) ...')
+                break
+
+            # check whether workdir has enough disk space to continue
+            if not self._enough_disk():
+                click.echo('No enough disk space.')
                 break
 
             if self.max_jobs and self.ran_jobs >= self.max_jobs:
@@ -266,6 +277,13 @@ class Executor(object):
                     click.echo(
                         'Received interruption signal, will not pick up new task. Exit when current running task(s) '
                         'finishes...')
+                    shutdown = True
+                    break
+
+                # check whether workdir has enough disk space to continue
+                if not self._enough_disk():
+                    click.echo('No enough disk space, will not pick up new task. Exit when current running task(s) '
+                               'finishes...')
                     shutdown = True
                     break
 
@@ -422,3 +440,13 @@ class Executor(object):
                 click.echo('The executor: %s for queue: %s is running on this node: %s already, not start another one!'
                       % (self.id, self.queue_id, self.node_id))
                 sys.exit(1)
+
+    def _enough_disk(self):
+        statvfs = os.statvfs(self.executor_dir)
+
+        if self.min_disk is not None \
+            and self.min_disk != 0 \
+            and statvfs.f_bavail * statvfs.f_frsize < self.min_disk:
+            return False
+
+        return True
