@@ -218,8 +218,15 @@ class Executor(object):
 
             # check whether workdir has enough disk space to continue
             if not self._enough_disk():
-                click.echo('No enough disk space.')
-                break
+                if self.continuous_run:
+                    click.echo('No enough disk space, will start new job when enough space is available.')
+                    click.echo("Current running jobs: %s, running tasks: %s" % self._get_run_status())
+                    sleep(self.sleep_interval)  # TODO: may want to have a smarter wait intervals
+                    continue
+                else:
+                    click.echo('No enough disk space, exit after finishing current running job (if any) ...')
+                    click.echo("Current running jobs: %s, running tasks: %s" % self._get_run_status())
+                    break
 
             if self.max_jobs and self.ran_jobs >= self.max_jobs:
                 job_count_text = 'job has' if self.max_jobs == 1 else 'jobs have'
@@ -280,13 +287,6 @@ class Executor(object):
                     shutdown = True
                     break
 
-                # check whether workdir has enough disk space to continue
-                if not self._enough_disk():
-                    click.echo('No enough disk space, will not pick up new task. Exit when current running task(s) '
-                               'finishes...')
-                    shutdown = True
-                    break
-
                 running_jobs, running_workers = self._get_run_status()
 
                 click.echo('Current running jobs: %s, running tasks: %s' % (running_jobs, running_workers))
@@ -301,6 +301,19 @@ class Executor(object):
                     if not task:  # else try to start task for next job if it's appropriate to do so
                         if not (self.max_jobs and self.ran_jobs >= self.max_jobs) and \
                                         not len(self.scheduler.running_jobs()) >= self.parallel_jobs:
+
+                            # check whether workdir has enough disk space to continue
+                            if not self._enough_disk():
+                                if self.continuous_run:
+                                    click.echo('No enough disk space, will start new job when enough space is available.')
+                                    click.echo("Current running jobs: %s, running tasks: %s" % self._get_run_status())
+                                    sleep(self.sleep_interval)  # TODO: may want to have a smarter wait intervals
+                                else:
+                                    click.echo('No enough disk space, exit after finishing current running job (if any) ...')
+                                    click.echo("Current running jobs: %s, running tasks: %s" % self._get_run_status())
+                                    shutdown = True
+                                break
+
                             try:
                                 task = worker.next_task(job_state='queued')
                                 if task:
