@@ -132,6 +132,7 @@ job.add_command(job_commands.ls)
 job.add_command(job_commands.get)
 job.add_command(job_commands.delete)
 job.add_command(job_commands.resume)
+job.add_command(job_commands.reset)
 job.add_command(job_commands.add)
 
 
