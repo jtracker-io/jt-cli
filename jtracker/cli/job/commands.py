@@ -1,15 +1,17 @@
 import click
 import json
 import requests
+from .utils import job_json_to_tsv
 
 
 @click.command()
 @click.option('-q', '--queue-id', required=True, help='Job queue ID')
 @click.option('-o', '--owner', help='Queue owner account name')
+@click.option('-t', '--with-task', is_flag=True, help='Report at task level')
 @click.option('-s', '--status', help='Job status',type=click.Choice(
     ['running', 'queued', 'completed', 'failed', 'suspended', 'cancelled', 'submitted', 'retry', 'resume']))
 @click.pass_context
-def ls(ctx, queue_id, status, owner):
+def ls(ctx, queue_id, status, owner, with_task):
     """
     Listing workflow jobs in specified queue
     """
@@ -32,13 +34,16 @@ def ls(ctx, queue_id, status, owner):
             if isinstance(rv, (list, tuple)):
                 for j in rv:
                     if ctx.obj.get('JT_WRITE_OUT') == 'simple':
-                        click.echo("job_id: %s, status: %s" % (j.get('id'), j.get('state')))
+                        #click.echo("job_id: %s, status: %s" % (j.get('id'), j.get('state')))
+                        report_list = job_json_to_tsv(j, with_task=with_task)
+                        for l in report_list:
+                            click.echo('\t'.join([v if isinstance(v, str) else str(v) for v in l]))
                     elif ctx.obj.get('JT_WRITE_OUT') == 'json':
                         click.echo(json.dumps(j))
             else:
                 click.echo(rv)
         except Exception as err:
-            click.echo(r.text)
+            click.echo("Error: %s" % err)
 
 
 @click.command()
