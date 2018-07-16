@@ -363,7 +363,7 @@ class Executor(object):
         for j in self.scheduler.running_jobs():
             click.echo('Running job: %s' % j.get('id'))
             running_jobs += 1
-            for p in self.worker_processes.get(j.get('id')):
+            for p in self.worker_processes.get(j.get('id'), []):
                 if p.is_alive():
                     click.echo('Running task: %s' % p.name)
                     running_workers += 1

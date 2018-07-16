@@ -101,12 +101,12 @@ class Worker(object):
         cmd = "PATH=%s:$PATH %s" % (os.path.join(self.workflow_dir, 'workflow', 'tools'),
                                     json.loads(self.task.get('task_file')).get('command'))
 
-        arg = "'%s'" % self.task.get('task_file') if self.task else ''
+        arg = "%s" % self.task.get('task_file').replace('"', '\\"') if self.task else ''
 
         success = True  # assume task complete
         try:
-            #print("task command is: %s %s" % (cmd, arg))
-            p = subprocess.Popen(["%s %s" % (cmd, arg)], stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True)
+            # print("task command is: %s \"%s\"" % (cmd, arg))
+            p = subprocess.Popen(["%s \"%s\"" % (cmd, arg)], stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True)
             stdout, stderr = p.communicate()
         except Exception as e:
             success = False
