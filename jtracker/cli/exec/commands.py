@@ -12,8 +12,10 @@ from jtracker.execution import Executor
 @click.option('-j', '--job-file', type=click.Path(exists=True), help='Execute local job file')
 @click.option('-w', '--workflow-name', help='Specify registered workflow name in format: [{owner}/]{workflow}:{ver}')
 @click.option('-c', '--continuous-run', is_flag=True, help='Keep executor running even job queue is empty')
+@click.option('-f', '--force-restart', is_flag=True, help='Force executor restart, set previous running jobs to cancelled')
+@click.option('-r', '--resume-job', is_flag=True, help='Force executor restart, set previous running jobs to resume')
 @click.pass_context
-def run(ctx, job_file, job_id, queue_id,
+def run(ctx, job_file, job_id, queue_id, force_restart, resume_job,
              workflow_name, parallel_jobs, max_jobs, min_disk, parallel_workers, continuous_run):
     """
     Launch JTracker executor
@@ -33,7 +35,9 @@ def run(ctx, job_file, job_id, queue_id,
                                max_jobs=max_jobs,
                                min_disk=min_disk * 1000000000,
                                parallel_workers=parallel_workers,
-                               continuous_run=continuous_run
+                               continuous_run=continuous_run,
+                               force_restart=force_restart,
+                               resume_job=resume_job
                                )
     except Exception as e:
         click.echo(str(e))

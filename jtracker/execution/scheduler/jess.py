@@ -276,3 +276,21 @@ class JessScheduler(Scheduler):
             raise JessNotAvailable('JESS service temporarily unavailable')
 
         print('Job: %s suspended' % job_id)
+
+
+    def resume_job(self, job_id=None):
+        # call JESS endpoint: /jobs/owner/{owner_name}/queue/{queue_id}/job/{job_id}/action
+        request_body = {
+            'action': 'resume',
+            'executor_id': self.executor_id
+        }
+
+        request_url = "%s/jobs/owner/%s/queue/%s/job/%s/action" % (self.jess_server.strip('/'),
+                                                                   self.jt_account, self.queue_id, job_id)
+
+        try:
+            r = requests.put(request_url, json=request_body)
+        except:
+            raise JessNotAvailable('JESS service temporarily unavailable')
+
+        print('Job: %s set to resume' % job_id)

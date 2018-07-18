@@ -49,7 +49,8 @@ class Executor(object):
                  job_file=None,  # when job_file is provided, it's local mode, no tracking from the server side
                  job_id=None,  # can optionally specify which job to run, not applicable when job_file specified
                  min_disk=None, # minimally require disk space (in bytes) for launching task execution
-                 parallel_jobs=1, parallel_workers=1, sleep_interval=5, max_jobs=0, continuous_run=False):
+                 parallel_jobs=1, parallel_workers=1, sleep_interval=5, max_jobs=0, continuous_run=False,
+                 force_restart=False, resume_job=False):
 
         self._killer = GracefulKiller()
 
@@ -66,6 +67,8 @@ class Executor(object):
         self._sleep_interval = sleep_interval
         self._ran_jobs = 0
         self._continuous_run = continuous_run
+        self._force_restart = force_restart
+        self._resume_job = resume_job
 
         self._running_jobs = []
         self._worker_processes = {}
@@ -109,7 +112,8 @@ class Executor(object):
         # init executor dir
         self._init_executor_dir()
 
-        # TODO: check whether previous executor session exists, restore it unless user chose not to (via options)
+        # clean up any jobs left in `running` state on the server
+        self._clean_up_running_jobs()
 
         click.echo("Executor: %s started." % self.id)
 
@@ -194,6 +198,14 @@ class Executor(object):
     @property
     def continuous_run(self):
         return self._continuous_run
+
+    @property
+    def force_restart(self):
+        return self._force_restart
+
+    @property
+    def resume_job(self):
+        return self._resume_job
 
     @property
     def worker_processes(self):
@@ -450,9 +462,28 @@ class Executor(object):
             os.open(os.path.join(self.executor_dir, '_state.running'), flags)
         except OSError as e:
             if e.errno == errno.EEXIST:  # Exit as the executor is running.
-                click.echo('The executor: %s for queue: %s is running on this node: %s already, not start another one!'
-                      % (self.id, self.queue_id, self.node_id))
+                if not (self.force_restart or self.resume_job):
+                    click.echo('The executor: %s for queue: %s is running on this node: %s already, not start executor without -f or -r option.'
+                          % (self.id, self.queue_id, self.node_id))
+                    sys.exit(1)
+            else:
+                click.echo('Unable to start executor, write permission is needed in JTHome')
                 sys.exit(1)
+
+    def _clean_up_running_jobs(self):
+        server_running_jobs = self.scheduler.running_jobs()
+        if server_running_jobs:
+            if not (self.resume_job or self.force_restart):
+                click.echo('Server reports running jobs by the executor on this compute node, not start executor without -f or -r option.')
+                sys.exit(1)
+
+            for j in server_running_jobs:
+                if self.resume_job:
+                    click.echo('Set previous running job: %s to resume' % j.get('id'))
+                    self.scheduler.resume_job(j.get('id'))
+                elif self.force_restart:
+                    click.echo('Cancel previous running job: %s' % j.get('id'))
+                    self.scheduler.cancel_job(j.get('id'))
 
     def _enough_disk(self):
         statvfs = os.statvfs(self.executor_dir)
