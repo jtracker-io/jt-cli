@@ -87,7 +87,7 @@ class Worker(object):
         self._task = self.scheduler.next_task(job_state=job_state)
         return self.task
 
-    def run(self, retry=0):
+    def run(self, retry=2):
         # get
         if not self.task:
             raise Exception("Must first get a task before calling 'run'")
@@ -103,23 +103,35 @@ class Worker(object):
 
         arg = "%s" % self.task.get('task_file').replace('"', '\\"') if self.task else ''
 
-        success = True  # assume task complete
-        try:
-            # print("task command is: %s \"%s\"" % (cmd, arg))
-            p = subprocess.Popen(["%s \"%s\"" % (cmd, arg)], stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True)
-            stdout, stderr = p.communicate()
-        except Exception as e:
-            success = False
+        for n in range(retry + 1):
+            success = True  # assume task complete
+            if n > 0:
+                pause = 100 * 2 ** n
+                print('Task: %s failed, retry in %s seconds; job: %s' %
+                      (self.task.get('name'), pause, self.task.get('job.id')))
+                sleep(pause)  # pause before retrying
+                print('No %s retry on task: %s; job: %s' %
+                      (n, self.task.get('name'), self.task.get('job.id')))
+            try:
+                p = subprocess.Popen(["%s \"%s\"" % (cmd, arg)], stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True)
+                stdout, stderr = p.communicate()
+            except Exception as e:
+                success = False
 
-        if p.returncode != 0 or success is False:
-            if 'KeyboardInterrupt' in stderr.decode("utf-8"):
-                success = None  # task cancelled
+            if p.returncode != 0 or success is False:
+                with open(os.path.join(self.task_dir, 'stdout.txt'), 'a') as o:
+                    o.write("Run no: %s, STDOUT at: %s\n" % (n+1, int(time())))
+                    o.write(stdout.decode("utf-8"))
+                with open(os.path.join(self.task_dir, 'stderr.txt'), 'a') as e:
+                    e.write("Run no: %s, STDERR at: %s\n" % (n+1, int(time())))
+                    e.write(stderr.decode("utf-8"))
+                if 'KeyboardInterrupt' in stderr.decode("utf-8"):
+                    success = None  # task cancelled
+                    break
+                else:
+                    success = False  # task failed
             else:
-                success = False  # task failed
-            with open(os.path.join(self.task_dir, 'stdout.txt'), 'w') as o:
-                o.write(stdout.decode("utf-8") )
-            with open(os.path.join(self.task_dir, 'stderr.txt'), 'w') as e:
-                e.write(stderr.decode("utf-8") )
+                break  # success
 
         time_end = int(time())
 
