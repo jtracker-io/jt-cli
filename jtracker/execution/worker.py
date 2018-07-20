@@ -120,10 +120,10 @@ class Worker(object):
 
             if p.returncode != 0 or success is False:
                 with open(os.path.join(self.task_dir, 'stdout.txt'), 'a') as o:
-                    o.write('Run: %s, STDOUT at: %s' % (n+1, int(time())))
+                    o.write("Run: %s, STDOUT at: %s\n" % (n+1, int(time())))
                     o.write(stdout.decode("utf-8"))
                 with open(os.path.join(self.task_dir, 'stderr.txt'), 'a') as e:
-                    e.write('Run: %s, STDERR at: %s' % (n+1, int(time())))
+                    e.write("Run: %s, STDERR at: %s\n" % (n+1, int(time())))
                     e.write(stderr.decode("utf-8"))
                 if 'KeyboardInterrupt' in stderr.decode("utf-8"):
                     success = None  # task cancelled
