@@ -27,7 +27,6 @@ def ls(ctx, queue_id, status, owner, with_task):
 
     if r.status_code != 200:
         click.echo('List job for: %s failed: %s' % (owner, r.text))
-        ctx.abort()
     else:
         try:
             rv = json.loads(r.text)
@@ -69,7 +68,6 @@ def get(ctx, queue_id, status, job_id, queue_owner):
     r = requests.get(url)
     if r.status_code != 200:
         click.echo('Get job for: %s failed: %s' % (queue_owner, r.text))
-        ctx.abort()
     else:
         click.echo(r.text)
 
@@ -92,7 +90,6 @@ def delete(ctx, queue_id, job_id, queue_owner):
     r = requests.delete(url)
     if r.status_code != 200:
         click.echo('Failed: %s' % r.text)
-        ctx.abort()
     else:
         click.echo(r.text)
 
@@ -118,7 +115,6 @@ def resume(ctx, queue_id, job_id, queue_owner):
     r = requests.put(url, json=request_body)
     if r.status_code != 200:
         click.echo('Failed: %s' % r.text)
-        ctx.abort()
     else:
         click.echo(r.text)
 
@@ -144,7 +140,6 @@ def reset(ctx, queue_id, job_id, queue_owner):
     r = requests.put(url, json=request_body)
     if r.status_code != 200:
         click.echo('Failed: %s' % r.text)
-        ctx.abort()
     else:
         click.echo(r.text)
 
@@ -173,12 +168,11 @@ def add(ctx, queue_id, job_json, queue_owner):
                 job = json.load(f)
         except:
             click.echo('"-j" must be supplied with a valid JSON string or file')
-            ctx.abort()
+            ctx.exit()
 
     r = requests.post(url=url, json=job)
     if r.status_code != 200:
         click.echo('Enqueue job for: %s failed: %s' % (queue_owner, r.text))
-        ctx.abort()
     else:
         click.echo('Enqueue job for: %s into queue: %s succeeded' % (queue_owner, queue_id))
         click.echo(r.text)

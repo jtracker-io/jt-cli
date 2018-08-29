@@ -1,6 +1,8 @@
 import os
+import logging
 import json
 import click
+import click_log
 from jtracker import __version__ as ver
 from .user import commands as user_commands
 from .org import commands as org_commands
@@ -11,6 +13,11 @@ from .task import commands as task_commands
 from .exec import commands as exec_commands
 
 from .config import Config
+
+logger = logging.getLogger(__name__)
+handler = logging.StreamHandler()
+handler.setFormatter(logging.Formatter('%(asctime)s [%(levelname)s] %(message)s'))
+logger.addHandler(handler)
 
 
 def print_version(ctx, param, value):
@@ -28,6 +35,7 @@ def print_version(ctx, param, value):
 @click.option('--version', '-v', is_flag=True, callback=print_version, expose_value=False,
               help='Show JTracker version', is_eager=True)
 @click.pass_context
+@click_log.simple_verbosity_option(logger, '--verbosity', '-V')
 def main(ctx, config_file, write_out):
     # initialize configuration from config_file
     if config_file is None:
@@ -39,13 +47,14 @@ def main(ctx, config_file, write_out):
         jt_config = Config(config_file).dict
     except Exception as err:
         click.echo(str(err))
-        ctx.abort()
+        ctx.exit()
 
     # initializing ctx.obj
     ctx.obj = {
         'JT_WRITE_OUT': write_out,
         'JT_CONFIG_FILE': config_file,
-        'JT_CONFIG': jt_config
+        'JT_CONFIG': jt_config,
+        'LOGGER': logger
     }
 
 
@@ -55,7 +64,7 @@ def config(ctx):
     """
     View or update JT cli configuration
     """
-    click.echo(json.dumps(ctx.obj.get('JT_CONFIG')))
+    click.echo(json.dumps(ctx.obj.get('JT_CONFIG'), indent=2))
     click.echo('*** other features to be implemented ***')
 
 

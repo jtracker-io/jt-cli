@@ -9,17 +9,22 @@ from .. import __version__ as ver
 
 
 class Worker(object):
-    def __init__(self, jt_home=None, account_id=None, scheduler=None, node_id=None):
+    def __init__(self, jt_home=None, account_id=None, scheduler=None, node_id=None, logger=None):
         self._id = str(uuid4())
         self._jt_home = jt_home
         self._account_id = account_id
         self._node_id = node_id
         self._scheduler = scheduler
         self._task = None
+        self._logger = logger
 
     @property
     def id(self):
         return self._id
+
+    @property
+    def logger(self):
+        return self._logger
 
     @property
     def jt_home(self):
@@ -96,7 +101,7 @@ class Worker(object):
 
         time_start = int(time())
 
-        print('Worker starts to work on task: %s in job: %s' % (self.task.get('name'), self.task.get('job.id')))
+        self.logger.info('Worker starts to work on task: %s in job: %s' % (self.task.get('name'), self.task.get('job.id')))
 
         cmd = "PATH=%s:$PATH %s" % (os.path.join(self.workflow_dir, 'workflow', 'tools'),
                                     json.loads(self.task.get('task_file')).get('command'))
@@ -107,10 +112,10 @@ class Worker(object):
             success = True  # assume task complete
             if n > 0:
                 pause = 100 * 2 ** n
-                print('Task: %s failed, retry in %s seconds; job: %s' %
+                self.logger.info('Task: %s failed, retry in %s seconds; job: %s' %
                       (self.task.get('name'), pause, self.task.get('job.id')))
                 sleep(pause)  # pause before retrying
-                print('No %s retry on task: %s; job: %s' %
+                self.logger.info('No %s retry on task: %s; job: %s' %
                       (n, self.task.get('name'), self.task.get('job.id')))
             try:
                 p = subprocess.Popen(["%s \"%s\"" % (cmd, arg)], stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True)
@@ -162,17 +167,17 @@ class Worker(object):
         job_id = self.task.get('job.id')
         task_name = self.task.get('name')
         if success:
-            print('Task completed, task: %s, job: %s' % (task_name, job_id))
+            self.logger.info('Task completed, task: %s, job: %s' % (task_name, job_id))
             self.scheduler.task_completed(job_id=job_id,
                                           task_name=task_name,
                                           output=output)
             exit(0)
         elif success is None:
-            print('Task cancelled, task: %s, job: %s' % (task_name, job_id))
+            self.logger.info('Task cancelled, task: %s, job: %s' % (task_name, job_id))
             exit(2)
         else:
-            print('Task failed, task: %s, job: %s' % (task_name, job_id))
-            print('STDERR: %s' % stderr.decode("utf-8") )
+            self.logger.info('Task failed, task: %s, job: %s' % (task_name, job_id))
+            self.logger.info('STDERR: %s' % stderr.decode("utf-8") )
             self.scheduler.task_failed(job_id=job_id,
                                        task_name=task_name,
                                        output=output)

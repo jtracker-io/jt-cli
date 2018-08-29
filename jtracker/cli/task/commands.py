@@ -7,9 +7,5 @@ def ls(ctx):
     """
     Listing workflow tasks
     """
-    click.echo('task list subcommand')
-    click.echo(ctx.obj)
+    click.echo('task list subcommand not implemented yet')
 
-
-class TaskClient(object):
-    pass

@@ -37,7 +37,8 @@ def run(ctx, job_file, job_id, queue_id, force_restart, resume_job,
                                parallel_workers=parallel_workers,
                                continuous_run=continuous_run,
                                force_restart=force_restart,
-                               resume_job=resume_job
+                               resume_job=resume_job,
+                               logger=ctx.obj.get('LOGGER')
                                )
     except Exception as e:
         click.echo(str(e))
