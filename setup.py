@@ -43,7 +43,7 @@ setup(
     version=version,
     description='Command line client for JTracker',
     license='Apache License, Version 2.0',
-    url='https://github.com/jthub/jt-cli',
+    url='https://github.com/jtracker-io/jt-cli',
     author='Junjun Zhang',
     author_email='junjun.ca@gmail.com',
     packages=find_packages(exclude=["*.tests", "*.tests.*", "tests.*", "tests"]),

@@ -19,21 +19,22 @@ from .worker import Worker
 
 
 class GracefulKiller:
-    def __init__(self):
+    def __init__(self, logger):
         self.kill_now = False
+        self.logger = logger
         signal.signal(signal.SIGINT, self.exit_gracefully)
         signal.signal(signal.SIGTERM, self.exit_gracefully)
 
     def exit_gracefully(self, signum, frame):
-        click.echo('Interruption signal received, will exit when the current running job finishes.')
+        self.logger.info('Interruption signal received, will exit when the current running job finishes.')
         self.kill_now = True
 
 
-def work(worker):
+def work(worker, logger):
     proc_name = multiprocessing.current_process().name
     try:
         rv = worker.run()
-        click.echo('Finish task: {} by worker: {}'.format(proc_name, worker.id))
+        logger.info('Finish task: {} by worker: {}'.format(proc_name, worker.id))
     except:
         # for server mode:
         # if exception happened, worker might not have reported failure to the server
@@ -50,9 +51,9 @@ class Executor(object):
                  job_id=None,  # can optionally specify which job to run, not applicable when job_file specified
                  min_disk=None, # minimally require disk space (in bytes) for launching task execution
                  parallel_jobs=1, parallel_workers=1, sleep_interval=5, max_jobs=0, continuous_run=False,
-                 force_restart=False, resume_job=False):
+                 force_restart=False, resume_job=False, logger=None):
 
-        self._killer = GracefulKiller()
+        self._killer = GracefulKiller(logger)
 
         # TODO: will need to verify jt_account
 
@@ -72,6 +73,7 @@ class Executor(object):
 
         self._running_jobs = []
         self._worker_processes = {}
+        self._logger = logger
 
         # params for server mode
         if self.queue_id and job_file is None:
@@ -115,7 +117,7 @@ class Executor(object):
         # clean up any jobs left in `running` state on the server
         self._clean_up_running_jobs()
 
-        click.echo("Executor: %s started." % self.id)
+        logger.info("Executor: %s started." % self.id)
 
     @property
     def killer(self):
@@ -124,6 +126,10 @@ class Executor(object):
     @property
     def id(self):
         return self._id
+
+    @property
+    def logger(self):
+        return self._logger
 
     @property
     def scheduler(self):
@@ -224,30 +230,30 @@ class Executor(object):
     def _run_remote(self):
         while True:
             if self.killer.kill_now:
-                click.echo('Received interruption signal, will not pick up new job. Exit after finishing current '
+                self.logger.info('Received interruption signal, will not pick up new job. Exit after finishing current '
                            'running job (if any) ...')
                 break
 
             # check whether workdir has enough disk space to continue
             if not self._enough_disk():
                 if self.continuous_run:
-                    click.echo('No enough disk space, will start new job when enough space is available.')
-                    click.echo("Current running jobs: %s, running tasks: %s" % self._get_run_status())
+                    self.logger.info('No enough disk space, will start new job when enough space is available.')
+                    self.logger.info("Current running jobs: %s, running tasks: %s" % self._get_run_status())
                     sleep(self.sleep_interval)  # TODO: may want to have a smarter wait intervals
                     continue
                 else:
-                    click.echo('No enough disk space, exit after finishing current running job (if any) ...')
-                    click.echo("Current running jobs: %s, running tasks: %s" % self._get_run_status())
+                    self.logger.info('No enough disk space, exit after finishing current running job (if any) ...')
+                    self.logger.info("Current running jobs: %s, running tasks: %s" % self._get_run_status())
                     break
 
             if self.max_jobs and self.ran_jobs >= self.max_jobs:
                 job_count_text = 'job has' if self.max_jobs == 1 else 'jobs have'
-                click.echo('Total number of executed %s reached preset limit of %s, relevant tasks are either '
+                self.logger.info('Total number of executed %s reached preset limit of %s, relevant tasks are either '
                            'finished or scheduled, executor will exit after running tasks finish ...' %
                            (job_count_text, self.max_jobs)
                            )
 
-                click.echo("Current running jobs: %s, running tasks: %s" % self._get_run_status())
+                self.logger.info("Current running jobs: %s, running tasks: %s" % self._get_run_status())
                 break
 
             if self.scheduler.running_jobs() and len(self.scheduler.running_jobs()) >= self.parallel_jobs:
@@ -255,31 +261,31 @@ class Executor(object):
                 # detail: we need to worry about possible run-away job, job appears to be running but worker died
                 #         already, is that possible if executor is still alive? Can executor report the state of a
                 #         task ran by a worker whose process exited with error?
-                click.echo('Reached limit for parallel running jobs, will start new job after completing a current job.')
-                click.echo("Current running jobs: %s, running tasks: %s" % self._get_run_status())
+                self.logger.info('Reached limit for parallel running jobs, will start new job after completing a current job.')
+                self.logger.info("Current running jobs: %s, running tasks: %s" % self._get_run_status())
 
                 sleep(self.sleep_interval)
                 continue
 
             worker = Worker(jt_home=self.jt_home, account_id=self.account_id,
-                            scheduler=self.scheduler, node_id=self.node_id)
+                            scheduler=self.scheduler, node_id=self.node_id, logger=self.logger)
 
             # get a task from a new job, break if no task returned, which suggests there is no more job
             if not worker.next_task(job_state='queued'):
                 if self.continuous_run:
-                    click.echo('No job in the queue, will start new job as it arrives.')
-                    click.echo("Current running jobs: %s, running tasks: %s" % self._get_run_status())
+                    self.logger.info('No job in the queue, will start new job as it arrives.')
+                    self.logger.info("Current running jobs: %s, running tasks: %s" % self._get_run_status())
                     sleep(self.sleep_interval)  # TODO: may want to have a smarter wait intervals
                     continue
                 else:
-                    click.echo('No job in the queue. Exit after finishing current running job (if any) ...')
-                    click.echo("Current running jobs: %s, running tasks: %s" % self._get_run_status())
+                    self.logger.info('No job in the queue. Exit after finishing current running job (if any) ...')
+                    self.logger.info("Current running jobs: %s, running tasks: %s" % self._get_run_status())
                     break
 
             # start the task
             p = multiprocessing.Process(target=work,
                                         name='task:%s job:%s' % (worker.task.get('name'), worker.task.get('job.id')),
-                                        args=(worker,)
+                                        args=(worker, self.logger)
                                         )
 
             self._worker_processes[worker.task.get('job.id')] = [p]
@@ -287,13 +293,13 @@ class Executor(object):
 
             # this is the first task of a new job
             self._ran_jobs += 1
-            click.echo('Executor: %s starts no. %s job' % (self.id, self.ran_jobs))
+            self.logger.info('Executor: %s starts no. %s job' % (self.id, self.ran_jobs))
 
             shutdown = False
             # stay in this loop when there are tasks to be run related to current running jobs
             while self.scheduler.has_next_task():
                 if self.killer.kill_now:
-                    click.echo(
+                    self.logger.info(
                         'Received interruption signal, will not pick up new task. Exit when current running task(s) '
                         'finishes...')
                     shutdown = True
@@ -301,11 +307,11 @@ class Executor(object):
 
                 running_jobs, running_workers = self._get_run_status()
 
-                click.echo('Current running jobs: %s, running tasks: %s' % (running_jobs, running_workers))
+                self.logger.info('Current running jobs: %s, running tasks: %s' % (running_jobs, running_workers))
 
                 if running_workers < self.parallel_workers:
                     worker = Worker(jt_home=self.jt_home, account_id=self.account_id,
-                                    scheduler=self.scheduler, node_id=self.node_id)
+                                    scheduler=self.scheduler, node_id=self.node_id, logger=self.logger)
                     try:
                         task = worker.next_task(job_state='running')  # get next task in the current running jobs
                     except:
@@ -317,12 +323,12 @@ class Executor(object):
                             # check whether workdir has enough disk space to continue
                             if not self._enough_disk():
                                 if self.continuous_run:
-                                    click.echo('No enough disk space, will start new job when enough space is available.')
-                                    click.echo("Current running jobs: %s, running tasks: %s" % self._get_run_status())
+                                    self.logger.info('No enough disk space, will start new job when enough space is available.')
+                                    self.logger.info("Current running jobs: %s, running tasks: %s" % self._get_run_status())
                                     sleep(self.sleep_interval)  # TODO: may want to have a smarter wait intervals
                                 else:
-                                    click.echo('No enough disk space, exit after finishing current running job (if any) ...')
-                                    click.echo("Current running jobs: %s, running tasks: %s" % self._get_run_status())
+                                    self.logger.info('No enough disk space, exit after finishing current running job (if any) ...')
+                                    self.logger.info("Current running jobs: %s, running tasks: %s" % self._get_run_status())
                                     shutdown = True
                                 break
 
@@ -330,13 +336,13 @@ class Executor(object):
                                 task = worker.next_task(job_state='queued')
                                 if task:
                                     self._ran_jobs += 1
-                                    click.echo('Executor: %s starts no. %s job' % (self.id, self.ran_jobs))
+                                    self.logger.info('Executor: %s starts no. %s job' % (self.id, self.ran_jobs))
                             except:
                                 pass  # no need to do anything, except maybe counting of failures
                     if task:
                         p = multiprocessing.Process(target=work,
                                                 name='task:%s job:%s' % (worker.task.get('name'), worker.task.get('job.id')),
-                                                args=(worker,)
+                                                args=(worker, self.logger)
                                                 )
                         if not self.worker_processes.get(worker.task.get('job.id')):
                             self._worker_processes[worker.task.get('job.id')] = [p]
@@ -358,7 +364,7 @@ class Executor(object):
         # call server to mark this executor terminated
         if self.killer.kill_now:
             for j in self.scheduler.running_jobs():
-                print('Cancelling job: %s' % j.get('id'))
+                self.logger.info('Cancelling job: %s' % j.get('id'))
                 self.scheduler.cancel_job(job_id=j.get('id'))
 
         try:
@@ -367,17 +373,17 @@ class Executor(object):
             pass
 
         # report summary about completed jobs and running jobs if any
-        click.echo('Executed %s %s.' % (self.ran_jobs, 'job' if self.ran_jobs <= 1 else 'jobs'))
+            self.logger.info('Executed %s %s.' % (self.ran_jobs, 'job' if self.ran_jobs <= 1 else 'jobs'))
 
     def _get_run_status(self):
         running_workers = 0
         running_jobs = 0
         for j in self.scheduler.running_jobs():
-            click.echo('Running job: %s' % j.get('id'))
+            self.logger.info('Running job: %s' % j.get('id'))
             running_jobs += 1
             for p in self.worker_processes.get(j.get('id'), []):
                 if p.is_alive():
-                    click.echo('Running task: %s' % p.name)
+                    self.logger.info('Running task: %s' % p.name)
                     running_workers += 1
                     p.join(timeout=0.1)
         return running_jobs, running_workers
@@ -413,7 +419,7 @@ class Executor(object):
         if os.path.isfile(workflow_installation_flag_file):
             return
 
-        click.echo('Installing workflow package ...')
+        self.logger.info('Installing workflow package ...')
         workflow = self.scheduler.get_workflow()
 
         git_account = workflow.get('git_account')
@@ -441,7 +447,7 @@ class Executor(object):
 
         # now create the installation flag file
         open(workflow_installation_flag_file, 'a').close()
-        click.echo('Workflow package installed')
+        self.logger.info('Workflow package installed')
 
     def _init_queue_dir(self):
         try:
@@ -463,26 +469,26 @@ class Executor(object):
         except OSError as e:
             if e.errno == errno.EEXIST:  # Exit as the executor is running.
                 if not (self.force_restart or self.resume_job):
-                    click.echo('The executor: %s for queue: %s is running on this node: %s already, not start executor without -f or -r option.'
+                    self.logger.info('The executor: %s for queue: %s is running on this node: %s already, not start executor without -f or -r option.'
                           % (self.id, self.queue_id, self.node_id))
                     sys.exit(1)
             else:
-                click.echo('Unable to start executor, write permission is needed in JTHome')
+                self.logger.info('Unable to start executor, write permission is needed in JTHome')
                 sys.exit(1)
 
     def _clean_up_running_jobs(self):
         server_running_jobs = self.scheduler.running_jobs()
         if server_running_jobs:
             if not (self.resume_job or self.force_restart):
-                click.echo('Server reports running jobs by the executor on this compute node, not start executor without -f or -r option.')
+                self.logger.info('Server reports running jobs by the executor on this compute node, not start executor without -f or -r option.')
                 sys.exit(1)
 
             for j in server_running_jobs:
                 if self.resume_job:
-                    click.echo('Set previous running job: %s to resume' % j.get('id'))
+                    self.logger.info('Set previous running job: %s to resume' % j.get('id'))
                     self.scheduler.resume_job(j.get('id'))
                 elif self.force_restart:
-                    click.echo('Cancel previous running job: %s' % j.get('id'))
+                    self.logger.info('Cancel previous running job: %s' % j.get('id'))
                     self.scheduler.cancel_job(j.get('id'))
 
     def _enough_disk(self):

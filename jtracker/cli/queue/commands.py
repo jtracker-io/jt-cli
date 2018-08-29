@@ -18,7 +18,6 @@ def ls(ctx, owner):
 
     if r.status_code != 200:
         click.echo('List job queue for: %s failed: %s' % (owner, r.text))
-        ctx.abort()
     else:
         click.echo(r.text)
 
@@ -41,11 +40,6 @@ def add(ctx, wf_name, wf_version, wf_owner):
     r = requests.post(url)
     if r.status_code != 200:
         click.echo('Queue creation for: %s failed: %s' % (wf_owner, r.text))
-        ctx.abort()
     else:
         click.echo("Queue registration succeeded, details as below")
         click.echo(r.text)
-
-
-class QueueClient(object):
-    pass

@@ -10,7 +10,7 @@ def ls(ctx):
     """
     Listing users
     """
-    click.echo('Not implemented yet: user list subcommand')
+    click.echo('user list subcommand not implemented yet')
 
 
 @click.command()
@@ -32,7 +32,6 @@ def signup(ctx, user):
 
     if r.status_code != 200:
         click.echo('Account sign up failed: %s' % r.text)
-        ctx.abort()
     else:
         rv = json.loads(r.text)
         click.echo("Account sign up succeeded")
@@ -55,20 +54,20 @@ def login(ctx, user):
     r = requests.get(url=url)
     if r.status_code != 200:
         click.echo('Log in failed for: %s' % user)
-        ctx.abort()
 
-    jtconfig_file = ctx.obj.get('JT_CONFIG_FILE')
-    with open(jtconfig_file, 'r') as f:
-        lines = f.readlines()
+    else:
+        jtconfig_file = ctx.obj.get('JT_CONFIG_FILE')
+        with open(jtconfig_file, 'r') as f:
+            lines = f.readlines()
 
-    with open(jtconfig_file, 'w') as f:
-        for l in lines:
-            if l.startswith('jt_account:'):
-                l = 'jt_account: %s\n' % user
-            f.write(l)
+        with open(jtconfig_file, 'w') as f:
+            for l in lines:
+                if l.startswith('jt_account:'):
+                    l = 'jt_account: %s\n' % user
+                f.write(l)
 
-    # TODO: write the logged user name in the config file
-    click.echo('Logged in as: %s' % user)
+        # TODO: write the logged user name in the config file
+        click.echo('Logged in as: %s' % user)
 
 
 @click.command()
@@ -88,8 +87,7 @@ def delete(ctx):
     """
     Delete a user
     """
-    click.echo('user delete subcommand')
-    click.echo(ctx.obj)
+    click.echo('user delete subcommand not implemented yet')
 
 
 @click.command()
@@ -98,28 +96,4 @@ def update(ctx):
     """
     Update user info
     """
-    click.echo('user update subcommand')
-    click.echo(ctx.obj)
-
-
-class UserClient(object):
-    def __init__(self, jt_home=None, jt_account=None, ams_server=None):
-        self._jt_home = jt_home
-        self._jt_account = jt_account
-        self._ams_server = ams_server
-
-    @property
-    def jt_home(self):
-        return self._jt_home
-
-    @property
-    def jt_account(self):
-        return self._jt_account
-
-    @property
-    def ams_server(self):
-        return self._ams_server
-
-    def create(self, user_name=None):
-        print('create user: %s' % user_name)
-        print('not implemented yet')
+    click.echo('user update subcommand not implemented yet')

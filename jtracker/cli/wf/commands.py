@@ -18,7 +18,6 @@ def ls(ctx, owner):
     r = requests.get(url)
     if r.status_code != 200:
         click.echo('Workflow for: %s not found: %s' % (owner, r.text))
-        ctx.abort()
     else:
         click.echo(r.text)
 
@@ -57,7 +56,6 @@ def register(ctx, git_server, git_account, git_repo, git_path, git_tag, wf_name,
     r = requests.post(url, json=data)
     if r.status_code != 200:
         click.echo('Workflow registration failed: %s' % r.text)
-        ctx.abort()
     else:
         click.echo("Workflow registration succeeded, details as below")
         click.echo(r.text)

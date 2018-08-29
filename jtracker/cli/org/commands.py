@@ -7,9 +7,5 @@ def ls(ctx):
     """
     Listing organizations
     """
-    click.echo('org list subcommand')
-    click.echo(ctx.obj)
+    click.echo('org list subcommand not implemented yet')
 
-
-class OrgClient(object):
-    pass
