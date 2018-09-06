@@ -50,7 +50,7 @@ class Executor(object):
                  job_file=None,  # when job_file is provided, it's local mode, no tracking from the server side
                  job_id=None,  # can optionally specify which job to run, not applicable when job_file specified
                  min_disk=None, # minimally require disk space (in bytes) for launching task execution
-                 parallel_jobs=1, parallel_workers=1, sleep_interval=5, max_jobs=0, continuous_run=False,
+                 parallel_jobs=1, parallel_workers=1, polling_interval=5, max_jobs=0, continuous_run=False,
                  force_restart=False, resume_job=False, logger=None):
 
         self._killer = GracefulKiller(logger)
@@ -65,7 +65,7 @@ class Executor(object):
         self._max_jobs = max_jobs
         self._min_disk = min_disk
         self._parallel_workers = parallel_workers
-        self._sleep_interval = sleep_interval
+        self._polling_interval = polling_interval
         self._ran_jobs = 0
         self._continuous_run = continuous_run
         self._force_restart = force_restart
@@ -174,8 +174,8 @@ class Executor(object):
         return os.path.join(self.queue_dir, 'executor.%s' % self.scheduler.executor_id)
 
     @property
-    def sleep_interval(self):
-        return self._sleep_interval
+    def polling_interval(self):
+        return self._polling_interval
 
     @property
     def parallel_jobs(self):
@@ -239,7 +239,7 @@ class Executor(object):
                 if self.continuous_run:
                     self.logger.info('No enough disk space, will start new job when enough space is available.')
                     self.logger.info("Current running jobs: %s, running tasks: %s" % self._get_run_status())
-                    sleep(self.sleep_interval)  # TODO: may want to have a smarter wait intervals
+                    sleep(self.polling_interval)  # TODO: may want to have a smarter wait intervals
                     continue
                 else:
                     self.logger.info('No enough disk space, exit after finishing current running job (if any) ...')
@@ -264,7 +264,7 @@ class Executor(object):
                 self.logger.info('Reached limit for parallel running jobs, will start new job after completing a current job.')
                 self.logger.info("Current running jobs: %s, running tasks: %s" % self._get_run_status())
 
-                sleep(self.sleep_interval)
+                sleep(self.polling_interval)
                 continue
 
             worker = Worker(jt_home=self.jt_home, account_id=self.account_id,
@@ -275,7 +275,7 @@ class Executor(object):
                 if self.continuous_run:
                     self.logger.info('No job in the queue, will start new job as it arrives.')
                     self.logger.info("Current running jobs: %s, running tasks: %s" % self._get_run_status())
-                    sleep(self.sleep_interval)  # TODO: may want to have a smarter wait intervals
+                    sleep(self.polling_interval)  # TODO: may want to have a smarter wait intervals
                     continue
                 else:
                     self.logger.info('No job in the queue. Exit after finishing current running job (if any) ...')
@@ -325,7 +325,7 @@ class Executor(object):
                                 if self.continuous_run:
                                     self.logger.info('No enough disk space, will start new job when enough space is available.')
                                     self.logger.info("Current running jobs: %s, running tasks: %s" % self._get_run_status())
-                                    sleep(self.sleep_interval)  # TODO: may want to have a smarter wait intervals
+                                    sleep(self.polling_interval)  # TODO: may want to have a smarter wait intervals
                                 else:
                                     self.logger.info('No enough disk space, exit after finishing current running job (if any) ...')
                                     self.logger.info("Current running jobs: %s, running tasks: %s" % self._get_run_status())
@@ -350,7 +350,7 @@ class Executor(object):
                             self._worker_processes[worker.task.get('job.id')].append(p)
                         p.start()
 
-                sleep(self.sleep_interval)
+                sleep(self.polling_interval)
 
             if shutdown:
                 break

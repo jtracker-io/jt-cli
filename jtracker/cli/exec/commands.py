@@ -8,15 +8,17 @@ from jtracker.execution import Executor
 @click.option('-p', '--parallel-jobs', type=int, default=1, help='Max number of parallel running jobs')
 @click.option('-m', '--max-jobs', type=int, default=0, help='Max number of jobs to be run by the executor')
 @click.option('-d', '--min-disk', type=int, default=0, help='Min required free disk space (in GB)')
-@click.option('-i', '--job-id', help='Execute specified job')
+@click.option('-b', '--job-id', help='Execute specified job')
 @click.option('-j', '--job-file', type=click.Path(exists=True), help='Execute local job file')
 @click.option('-w', '--workflow-name', help='Specify registered workflow name in format: [{owner}/]{workflow}:{ver}')
 @click.option('-c', '--continuous-run', is_flag=True, help='Keep executor running even job queue is empty')
 @click.option('-f', '--force-restart', is_flag=True, help='Force executor restart, set previous running jobs to cancelled')
 @click.option('-r', '--resume-job', is_flag=True, help='Force executor restart, set previous running jobs to resume')
+@click.option('-i', '--polling-interval', type=int, default=20, help='Time interval the executor checks for new task')
 @click.pass_context
 def run(ctx, job_file, job_id, queue_id, force_restart, resume_job,
-             workflow_name, parallel_jobs, max_jobs, min_disk, parallel_workers, continuous_run):
+             workflow_name, parallel_jobs, max_jobs, min_disk, parallel_workers, continuous_run,
+             polling_interval):
     """
     Launch JTracker executor
     """
@@ -38,6 +40,7 @@ def run(ctx, job_file, job_id, queue_id, force_restart, resume_job,
                                continuous_run=continuous_run,
                                force_restart=force_restart,
                                resume_job=resume_job,
+                               polling_interval=polling_interval,
                                logger=ctx.obj.get('LOGGER')
                                )
     except Exception as e:
@@ -51,5 +54,5 @@ def run(ctx, job_file, job_id, queue_id, force_restart, resume_job,
 
 @click.command()
 @click.pass_context
-def list(ctx, job_file, job_id, queue_id, executor_id):
-    pass
+def ls(ctx, job_file, job_id, queue_id, executor_id):
+    click.echo('Listing executors not implemented yet')
