@@ -146,6 +146,31 @@ def reset(ctx, queue_id, job_id, queue_owner):
 
 @click.command()
 @click.option('-q', '--queue-id', required=True, help='Job queue ID')
+@click.option('-j', '--job-id', required=True, help='Job ID')
+@click.option('-o', '--queue-owner', help='Queue owner account name')
+@click.pass_context
+def suspend(ctx, queue_id, job_id, queue_owner):
+    """
+    Suspend a queued job
+    """
+    # call JESS endpoint: /jobs/owner/{owner_name}/queue/{queue_id}/job/{job_id}/action
+    jess_url = ctx.obj.get('JT_CONFIG').get('jess_server')
+    queue_owner = queue_owner if queue_owner else ctx.obj.get('JT_CONFIG').get('jt_account')
+
+    url = "%s/jobs/owner/%s/queue/%s/job/%s/action" % (jess_url, queue_owner, queue_id, job_id)
+    request_body = {
+        'action': 'suspend'
+    }
+
+    r = requests.put(url, json=request_body)
+    if r.status_code != 200:
+        click.echo('Failed: %s' % r.text)
+    else:
+        click.echo(r.text)
+
+
+@click.command()
+@click.option('-q', '--queue-id', required=True, help='Job queue ID')
 @click.option('-j', '--job-json', required=True, help='Job JSON string or file')
 @click.option('-o', '--queue-owner', help='Queue owner account name')
 @click.pass_context
