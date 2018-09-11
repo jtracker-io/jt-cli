@@ -322,23 +322,16 @@ class Executor(object):
 
                             # check whether workdir has enough disk space to continue
                             if not self._enough_disk():
-                                if self.continuous_run:
-                                    self.logger.info('No enough disk space, will start new job when enough space is available.')
-                                    self.logger.info("Current running jobs: %s, running tasks: %s" % self._get_run_status())
-                                    sleep(self.polling_interval)  # TODO: may want to have a smarter wait intervals
-                                else:
-                                    self.logger.info('No enough disk space, exit after finishing current running job (if any) ...')
-                                    self.logger.info("Current running jobs: %s, running tasks: %s" % self._get_run_status())
-                                    shutdown = True
-                                break
-
-                            try:
-                                task = worker.next_task(job_state='queued')
-                                if task:
-                                    self._ran_jobs += 1
-                                    self.logger.info('Executor: %s starts no. %s job' % (self.id, self.ran_jobs))
-                            except:
-                                pass  # no need to do anything, except maybe counting of failures
+                                self.logger.info('No enough disk space, will start new job when enough space is available.')
+                                self.logger.info("Current running jobs: %s, running tasks: %s" % self._get_run_status())
+                            else:
+                                try:
+                                    task = worker.next_task(job_state='queued')
+                                    if task:
+                                        self._ran_jobs += 1
+                                        self.logger.info('Executor: %s starts no. %s job' % (self.id, self.ran_jobs))
+                                except:
+                                    pass  # no need to do anything, except maybe counting of failures
                     if task:
                         p = multiprocessing.Process(target=work,
                                                 name='task:%s job:%s' % (worker.task.get('name'), worker.task.get('job.id')),
