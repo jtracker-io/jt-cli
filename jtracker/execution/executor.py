@@ -298,6 +298,7 @@ class Executor(object):
             shutdown = False
             # stay in this loop when there are tasks to be run related to current running jobs
             while self.scheduler.has_next_task():
+                sleep(self.polling_interval)
                 if self.killer.kill_now:
                     self.logger.info(
                         'Received interruption signal, will not pick up new task. Exit when current running task(s) '
@@ -309,48 +310,42 @@ class Executor(object):
 
                 self.logger.info('Current running jobs: %s, running tasks: %s' % (running_jobs, running_workers))
 
-                if running_workers < self.parallel_workers:
-                    worker = Worker(jt_home=self.jt_home, account_id=self.account_id,
-                                    scheduler=self.scheduler, node_id=self.node_id, logger=self.logger)
-                    try:
-                        task = worker.next_task(job_state='running')  # get next task in the current running jobs
-                    except:
-                        pass  # for whatever reason next_task call failed, TODO: add count for failed attempts, fail the job when next_task failed too many times
-                    if not task:  # else try to start task for next job if it's appropriate to do so
-                        if not (self.max_jobs and self.ran_jobs >= self.max_jobs) and \
-                                        not len(self.scheduler.running_jobs()) >= self.parallel_jobs:
+                if not running_workers < self.parallel_workers:
+                    continue
 
-                            # check whether workdir has enough disk space to continue
-                            if not self._enough_disk():
-                                if self.continuous_run:
-                                    self.logger.info('No enough disk space, will start new job when enough space is available.')
-                                    self.logger.info("Current running jobs: %s, running tasks: %s" % self._get_run_status())
-                                    sleep(self.polling_interval)  # TODO: may want to have a smarter wait intervals
-                                else:
-                                    self.logger.info('No enough disk space, exit after finishing current running job (if any) ...')
-                                    self.logger.info("Current running jobs: %s, running tasks: %s" % self._get_run_status())
-                                    shutdown = True
-                                break
+                worker = Worker(jt_home=self.jt_home, account_id=self.account_id,
+                                scheduler=self.scheduler, node_id=self.node_id, logger=self.logger)
 
-                            try:
-                                task = worker.next_task(job_state='queued')
-                                if task:
-                                    self._ran_jobs += 1
-                                    self.logger.info('Executor: %s starts no. %s job' % (self.id, self.ran_jobs))
-                            except:
-                                pass  # no need to do anything, except maybe counting of failures
+                task = worker.next_task(job_state='running')  # get next task in the current running jobs
+
+                if not task:  # if no task, try to start task for next job if it's appropriate to do so
+                    if (self.max_jobs and self.ran_jobs >= self.max_jobs) or \
+                            len(self.scheduler.running_jobs()) >= self.parallel_jobs:
+                        # no free slot, so not to start any new job
+                        continue
+
+                    # check whether workdir has enough disk space to continue
+                    if not self._enough_disk():
+                        self.logger.info('No enough disk space, will start new job when enough space is available.')
+                        self.logger.info("Current running jobs: %s, running tasks: %s" % self._get_run_status())
+                        # on enough space, not to start any new job, will continue with remaining tasks of running jobs
+                        continue
+
+                    task = worker.next_task(job_state='queued')
                     if task:
-                        p = multiprocessing.Process(target=work,
-                                                name='task:%s job:%s' % (worker.task.get('name'), worker.task.get('job.id')),
-                                                args=(worker, self.logger)
-                                                )
-                        if not self.worker_processes.get(worker.task.get('job.id')):
-                            self._worker_processes[worker.task.get('job.id')] = [p]
-                        else:
-                            self._worker_processes[worker.task.get('job.id')].append(p)
-                        p.start()
+                        self._ran_jobs += 1
+                        self.logger.info('Executor: %s starts no. %s job' % (self.id, self.ran_jobs))
 
-                sleep(self.polling_interval)
+                if task:
+                    p = multiprocessing.Process(target=work,
+                                            name='task:%s job:%s' % (worker.task.get('name'), worker.task.get('job.id')),
+                                            args=(worker, self.logger)
+                                            )
+                    if not self.worker_processes.get(worker.task.get('job.id')):
+                        self._worker_processes[worker.task.get('job.id')] = [p]
+                    else:
+                        self._worker_processes[worker.task.get('job.id')].append(p)
+                    p.start()
 
             if shutdown:
                 break
@@ -373,7 +368,7 @@ class Executor(object):
             pass
 
         # report summary about completed jobs and running jobs if any
-            self.logger.info('Executed %s %s.' % (self.ran_jobs, 'job' if self.ran_jobs <= 1 else 'jobs'))
+        self.logger.info('Executed %s %s.' % (self.ran_jobs, 'job' if self.ran_jobs <= 1 else 'jobs'))
 
     def _get_run_status(self):
         running_workers = 0
