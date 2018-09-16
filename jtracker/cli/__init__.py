@@ -125,6 +125,9 @@ def queue(ctx):
 # queue subcommands
 queue.add_command(queue_commands.ls)
 queue.add_command(queue_commands.add)
+queue.add_command(queue_commands.pause)
+queue.add_command(queue_commands.close)
+queue.add_command(queue_commands.open)
 
 
 @main.group()

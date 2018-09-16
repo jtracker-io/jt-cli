@@ -43,3 +43,59 @@ def add(ctx, wf_name, wf_version, wf_owner):
     else:
         click.echo("Queue registration succeeded, details as below")
         click.echo(r.text)
+
+
+@click.command()
+@click.option('-q', '--queue-id', required=True, help='Queue ID')
+def pause(queue_id):
+    """
+    Pause a workflow queue
+    """
+    r = update_queue_state(queue_id, 'pause')
+
+    if r.status_code != 200:
+        click.echo('Pause queue failed, please ensure input is correct.')
+    else:
+        click.echo(r.text)
+
+
+@click.command()
+@click.option('-q', '--queue-id', required=True, help='Queue ID')
+def open(queue_id):
+    """
+    Open a workflow queue
+    """
+    r = update_queue_state(queue_id, 'open')
+
+    if r.status_code != 200:
+        click.echo('Open queue failed, please ensure input is correct.')
+    else:
+        click.echo(r.text)
+
+
+@click.command()
+@click.option('-q', '--queue-id', required=True, help='Queue ID')
+def close(queue_id):
+    """
+    Close a workflow queue
+    """
+    r = update_queue_state(queue_id, 'close')
+
+    if r.status_code != 200:
+        click.echo('Close queue failed, please ensure input is correct.')
+    else:
+        click.echo(r.text)
+
+
+@click.pass_context
+def update_queue_state(ctx, queue_id, action):
+    jess_url = ctx.obj.get('JT_CONFIG').get('jess_server')
+    owner = ctx.obj.get('JT_CONFIG').get('jt_account')
+
+    url = "%s/queues/owner/%s/queue/%s/action" % (jess_url, owner, queue_id)
+
+    request_body = {
+        'action': action
+    }
+
+    return requests.put(url, json=request_body)
