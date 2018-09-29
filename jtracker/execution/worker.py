@@ -1,4 +1,5 @@
 import os
+import re
 import errno
 import subprocess
 import json
@@ -103,10 +104,8 @@ class Worker(object):
 
         self.logger.info('Worker starts to work on task: %s in job: %s' % (self.task.get('name'), self.task.get('job.id')))
 
-        cmd = "PATH=%s:$PATH %s" % (os.path.join(self.workflow_dir, 'workflow', 'tools'),
-                                    json.loads(self.task.get('task_file')).get('command'))
-
-        arg = "%s" % self.task.get('task_file').replace('"', '\\"') if self.task else ''
+        command = self._task_command_builder()
+        self.logger.debug("Task command is: %s" % command)
 
         for n in range(retry + 1):
             success = True  # assume task complete
@@ -118,7 +117,7 @@ class Worker(object):
                 self.logger.info('No %s retry on task: %s; job: %s' %
                       (n, self.task.get('name'), self.task.get('job.id')))
             try:
-                p = subprocess.Popen(["%s \"%s\"" % (cmd, arg)], stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True)
+                p = subprocess.Popen([command], stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True)
                 stdout, stderr = p.communicate()
             except Exception as e:
                 success = False
@@ -139,6 +138,11 @@ class Worker(object):
                 break  # success
 
         time_end = int(time())
+
+        """
+        TODO: will need to capture and search for results, and prepare output json which was previously
+              done by the tool, now we have to do it within JTracker
+        """
 
         # get output.json
         try:
@@ -191,3 +195,43 @@ class Worker(object):
                 raise
 
         os.chdir(self.task_dir)
+
+    def _task_command_builder(self):
+        """
+        Take task dictionary as input build full command in string (to be executed by a JT worker)
+        :param task: (dict)
+        task_dict = {
+                    'task': task_name,
+                    'input': {},
+                    'command': "--file ${file} --words ${sep=',' words}",
+                    'runtime': {}
+                }
+        :return: full command (string)
+        """
+        task = json.loads(self.task.get('task_file'))
+
+        if not isinstance(task, dict):
+            raise ValueError('Must provide task as dictionary type.')
+
+        p = re.compile("\$\{([a-zA-Z]+[a-zA-Z0-9_.]*|sep='([,.\-\s\w]+)'\s+([a-zA-Z]+[a-zA-Z0-9_.]*)?)\}")
+
+        command_str = task.get('command')
+        input_dict = task.get('input', {})
+
+        # parse out all variables and replace with values from input
+        replaced = False
+        for m in p.findall(command_str):
+            if m[0].startswith('sep='):
+                sep = m[1]
+                input_var = input_dict.get(m[2]) if isinstance(input_dict.get(m[2]), list) else [input_dict.get(m[2])]
+                value = sep.join(input_var)
+            else:
+                value = input_dict.get(m[0])
+
+            replaced = True
+            command_str = command_str.replace("${%s}" % m[0], value, 1)
+
+        if not replaced:  # backward compatibility, if no argument then add the whole task_file string as argument
+            command_str = "%s \"%s\"" % (command_str, json.dumps(task).replace('"', '\\"') if task else '')
+
+        return "PATH=%s:$PATH %s" % (os.path.join(self.workflow_dir, 'workflow', 'tools'), command_str)

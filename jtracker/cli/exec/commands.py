@@ -14,7 +14,7 @@ from jtracker.execution import Executor
 @click.option('-c', '--continuous-run', is_flag=True, help='Keep executor running even job queue is empty')
 @click.option('-f', '--force-restart', is_flag=True, help='Force executor restart, set previous running jobs to cancelled')
 @click.option('-r', '--resume-job', is_flag=True, help='Force executor restart, set previous running jobs to resume')
-@click.option('-i', '--polling-interval', type=int, default=20, help='Time interval the executor checks for new task')
+@click.option('-i', '--polling-interval', type=int, default=10, help='Time interval the executor checks for new task')
 @click.pass_context
 def run(ctx, job_file, job_id, queue_id, force_restart, resume_job,
              workflow_name, parallel_jobs, max_jobs, min_disk, parallel_workers, continuous_run,
