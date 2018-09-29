@@ -50,7 +50,7 @@ class Executor(object):
                  job_file=None,  # when job_file is provided, it's local mode, no tracking from the server side
                  job_id=None,  # can optionally specify which job to run, not applicable when job_file specified
                  min_disk=None, # minimally require disk space (in bytes) for launching task execution
-                 parallel_jobs=1, parallel_workers=1, polling_interval=5, max_jobs=0, continuous_run=False,
+                 parallel_jobs=1, parallel_workers=1, polling_interval=10, max_jobs=0, continuous_run=False,
                  force_restart=False, resume_job=False, logger=None):
 
         self._killer = GracefulKiller(logger)
@@ -350,11 +350,11 @@ class Executor(object):
             if shutdown:
                 break
 
-        for j in self.running_jobs:
-            if not self.worker_processes: break
+        for j in self.worker_processes:
             for p in self.worker_processes.get(j):
                 if p.is_alive():
-                    p.join()
+                    self.logger.debug('Killing subprocess: %s' % p)
+                    os.kill(p.pid, signal.SIGKILL)  # there is no point to wait for worker process
 
         # call server to mark this executor terminated
         if self.killer.kill_now:
