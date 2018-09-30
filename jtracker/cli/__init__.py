@@ -1,6 +1,6 @@
 import os
 import logging
-import json
+import yaml
 import click
 import click_log
 from jtracker import __version__ as ver
@@ -11,6 +11,7 @@ from .queue import commands as queue_commands
 from .job import commands as job_commands
 from .task import commands as task_commands
 from .exec import commands as exec_commands
+from .conf import commands as conf_commands
 
 from .config import Config
 
@@ -27,6 +28,33 @@ def print_version(ctx, param, value):
     ctx.exit()
 
 
+def setup(ctx, param, value):
+    if not value or ctx.resilient_parsing:
+        return
+    config_file = os.path.join(os.getenv("HOME"), '.jtconfig')
+    jt_home = os.path.join(os.getenv("HOME"), 'jthome')
+
+    # hardcode this for now
+    conf_dict = {
+                  "jt_account": "user1",
+                  "ams_server": "https://jtracker.io/api/jt-ams/v0.1",
+                  "wrs_server": "https://jtracker.io/api/jt-wrs/v0.1",
+                  "jess_server": "https://jtracker.io/api/jt-jess/v0.1",
+                  "jt_home": jt_home
+                }
+
+    with open(config_file, "w") as c:
+        c.write(yaml.dump(conf_dict, default_flow_style=False))
+
+    click.echo('==================================================')
+    click.echo()
+    click.echo(yaml.dump(conf_dict, default_flow_style=False))
+    click.echo('==================================================')
+    click.echo("You may edit configuration file '%s' for any changes." % config_file)
+    click.echo()
+    ctx.exit()
+
+
 @click.group()
 @click.option('--write-out', '-w', type=click.Choice(['simple', 'json']),
               default='simple', help='JT-CLI output format', required=False)
@@ -34,19 +62,20 @@ def print_version(ctx, param, value):
               help='JTracker configuration file', required=False)
 @click.option('--version', '-v', is_flag=True, callback=print_version, expose_value=False,
               help='Show JTracker version', is_eager=True)
+@click.option('--setup', '-s', is_flag=True, callback=setup, expose_value=False,
+              help='Complete JTracker CLI configuration', is_eager=True)
 @click.pass_context
 @click_log.simple_verbosity_option(logger, '--verbosity', '-V')
 def main(ctx, config_file, write_out):
     # initialize configuration from config_file
     if config_file is None:
         config_file = os.path.join(os.getenv("HOME"), '.jtconfig')
-        if not os.path.isfile(config_file):
-            config_file = os.path.join('.', '.jtconfig')
 
     try:
         jt_config = Config(config_file).dict
     except Exception as err:
         click.echo(str(err))
+        click.echo("Please run 'jt --setup' to complete JTracker CLI configuration")
         ctx.exit()
 
     # initializing ctx.obj
@@ -58,14 +87,16 @@ def main(ctx, config_file, write_out):
     }
 
 
-@main.command()
+@main.group()
 @click.pass_context
 def config(ctx):
     """
     View or update JT cli configuration
     """
-    click.echo(json.dumps(ctx.obj.get('JT_CONFIG'), indent=2))
-    click.echo('*** other features to be implemented ***')
+    pass
+
+config.add_command(conf_commands.show)
+config.add_command(conf_commands.update)
 
 
 @main.group()
@@ -75,7 +106,6 @@ def user(ctx):
     Operations related to user
     """
     pass
-
 
 # user subcommands
 user.add_command(user_commands.ls)
