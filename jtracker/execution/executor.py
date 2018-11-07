@@ -252,8 +252,6 @@ class Executor(object):
                            'finished or scheduled, executor will exit after running tasks finish ...' %
                            (job_count_text, self.max_jobs)
                            )
-
-                self.logger.info("Current running jobs: %s, running tasks: %s" % self._get_run_status())
                 break
 
             if self.scheduler.running_jobs() and len(self.scheduler.running_jobs()) >= self.parallel_jobs:
@@ -349,6 +347,11 @@ class Executor(object):
 
             if shutdown:
                 break
+
+        while not self.killer.kill_now and len(self.scheduler.running_jobs()): # no cancel, then wait until all running tasks finish
+            self.logger.info("Current running jobs: %s, running tasks: %s" % self._get_run_status())
+            sleep(self.polling_interval)
+            continue
 
         for j in self.worker_processes:
             for p in self.worker_processes.get(j):
