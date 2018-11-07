@@ -207,6 +207,8 @@ class Worker(object):
                     'runtime': {}
                 }
         :return: full command (string)
+
+        flatten list of values using 'sep' or 'pref', eg, ${sep=',' words} or ${prefix='-w' words}
         """
         task = json.loads(self.task.get('task_file'))
 
