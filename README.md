@@ -56,28 +56,28 @@ jt user login -u your_account_name
 The workflow we use for this demo is available here:
  https://github.com/jtracker-io/demo-workflows/tree/master/webpage-word-count.
 
-The workflow git release tag is 'webpage-word-count.0.0.8':
- https://github.com/jtracker-io/demo-workflows/releases/tag/webpage-word-count.0.0.8
+The workflow git release tag is 'webpage-word-count.0.0.9':
+ https://github.com/jtracker-io/demo-workflows/releases/tag/webpage-word-count.0.0.9
 
 ```
 jt wf register --git-server https://github.com \
                --git-account jtracker-io \
                --git-repo demo-workflows \
                --git-path webpage-word-count \
-               --git-tag webpage-word-count.0.0.8 \
+               --git-tag webpage-word-count.0.0.9 \
                --wf-name webpage-word-count \
-               --wf-version 0.0.8 \
+               --wf-version 0.0.9 \
                --wf-type JTracker
 ```
 
 ### Create a Job Queue for the workflow you would like to run from
 
 The following command creates a job queue for
-workflow: `webpage-word-count` with version: `0.0.8`.
+workflow: `webpage-word-count` with version: `0.0.9`.
 
 ```
 jt queue add --wf-name webpage-word-count \
-             --wf-version 0.0.8
+             --wf-version 0.0.9
 ```
 
 Upon successful creation, you will get a UUID for the new job queue, record it for the next step. In
