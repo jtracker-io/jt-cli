@@ -310,7 +310,9 @@ class Worker(object):
                 local_path = self._provision_file(input_[k])
                 if local_path: input_[k] = local_path
             elif isinstance(input_[k], list):
-                for i in range(input_[k]):
+                for i in range(len(input_[k])):
+                    if not isinstance(input_[k][i], str):
+                        continue
                     local_path = self._provision_file(input_[k][i])
                     if local_path: input_[k][i] = local_path
 
