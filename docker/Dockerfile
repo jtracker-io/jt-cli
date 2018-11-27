@@ -19,7 +19,7 @@ RUN apt-get -yqq update && \
     apt-get -yqq install python-pip && \
     pip --quiet install requests
 
-RUN curl -sSL -o tmp.tar.gz --retry 10 https://github.com/jtracker-io/jt-cli/archive/0.2.0a21.tar.gz && \
+RUN curl -sSL -o tmp.tar.gz --retry 10 https://github.com/jtracker-io/jt-cli/archive/0.2.0a22.tar.gz && \
     mkdir -p /tmp/jt-cli && \
     tar -C /tmp/jt-cli --strip-components 1 -zxf tmp.tar.gz && \
     apt-get -yqq install python3-pip && \
