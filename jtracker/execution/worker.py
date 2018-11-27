@@ -14,11 +14,26 @@ def file_provisioner(local_path, url, logger):
     logger.debug('File provisioner, local_path: %s, url: %s' % (local_path, url))
 
     wait_time = 0
-    while os.path.isfile(local_path + '.__downloading__'):  # file is being downloaded, wait forever
-        sleep(30)
-        wait_time += 30
+    file_sizes = []
+    # Check whether file is being downloaded, if so wait.
+    sleep_time = 30
+    last_filesize_checks = 6
+    while os.path.isfile(local_path + '.__downloading__'):
+        # Need a reliable way to break out this loop if in fact no download is happening
+        file_sizes.append(os.path.getsize(local_path))
+        if len(set(file_sizes[-last_filesize_checks:])) == 1:  # in the last 6 checks, file size did not change
+            logger.debug('Waited %s seconds, no file size change in the last %s seconds. ' +
+                         'File seems not being downloaded. Start re-download.' %
+                         (wait_time, sleep_time * last_filesize_checks))
+            os.remove(local_path + '.__downloading__')
+            break
+        sleep(sleep_time)
+        wait_time += sleep_time
+        logger.debug('Waited %s seconds for another worker to provision the file.' % wait_time)
 
-    if not os.path.isfile(local_path) and not os.path.isfile(local_path + '.__downloading__'):  # start download
+    # start download if file is not ready and it is not being downloaded
+    if not os.path.isfile(local_path) or \
+            (not os.path.isfile(local_path + '.__ready__') and not os.path.isfile(local_path + '.__downloading__')):
         dirname = os.path.dirname(local_path)
         try:
             os.makedirs(dirname)
@@ -40,18 +55,13 @@ def file_provisioner(local_path, url, logger):
                 if chunk:
                     f.write(chunk)
 
-        # remove download flag and add ready flag
-        os.remove(local_path + '.__downloading__')
-
-        flags = os.O_CREAT | os.O_EXCL | os.O_WRONLY
-        try:
-            os.open(local_path + '.__ready__', flags)  # create flag for ready
-        except OSError as e:
-            raise
+        # update the flag to indicate file is ready
+        os.rename(local_path + '.__downloading__', local_path + '.__ready__')
 
     if os.path.isfile(local_path) and os.path.isfile(local_path + '.__ready__'):
         return True
 
+    # it's OK to return false, file provisioning failed
     return False
 
 
