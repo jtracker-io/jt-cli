@@ -10,7 +10,7 @@ from random import random
 from .. import __version__ as ver
 
 
-def file_provisioner(local_path, url, logger):
+def download_file(local_path, url, logger):
     logger.debug('File provisioner, local_path: %s, url: %s' % (local_path, url))
 
     wait_time = 0
@@ -319,8 +319,6 @@ class Worker(object):
         self._task['task_file'] = json.dumps(task_file_json)
 
     def _provision_file(self, file_url):
-        self.logger.debug("file_url: %s" % file_url)
-
         m = re.match("\[(.+)\]((http|https)://.+)", file_url)
         local_path, url = None, None
 
@@ -338,10 +336,8 @@ class Worker(object):
             if not local_path.startswith('/'):
                 local_path = os.path.join(self.task_dir, local_path)
 
-        self.logger.debug("local_path: %s, url: %s" % (local_path, url))
-
         if url:  # perform the actual file previsioning
-            if not file_provisioner(local_path, url, self.logger):
+            if not download_file(local_path, url, self.logger):
                 raise('File provisioning failed, url: %s' % url)
 
         return local_path
