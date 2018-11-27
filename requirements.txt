@@ -3,3 +3,4 @@ retrying>=1.3.3
 PyYAML>=3.10
 requests>=2.10
 click-log
+requests

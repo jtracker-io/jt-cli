@@ -3,10 +3,66 @@ import re
 import errno
 import subprocess
 import json
+import requests
 from time import sleep, time
 from uuid import uuid4
 from random import random
 from .. import __version__ as ver
+
+
+def download_file(local_path, url, logger):
+    logger.debug('File provisioner, local_path: %s, url: %s' % (local_path, url))
+
+    wait_time = 0
+    file_sizes = []
+    # Check whether file is being downloaded, if so wait.
+    sleep_time = 30
+    last_filesize_checks = 6
+    while os.path.isfile(local_path + '.__downloading__'):
+        # Need a reliable way to break out this loop if in fact no download is happening
+        file_sizes.append(os.path.getsize(local_path))
+        if len(set(file_sizes[-last_filesize_checks:])) == 1:  # in the last 6 checks, file size did not change
+            logger.debug('Waited %s seconds, no file size change in the last %s seconds. ' +
+                         'File seems not being downloaded. Start re-download.' %
+                         (wait_time, sleep_time * last_filesize_checks))
+            os.remove(local_path + '.__downloading__')
+            break
+        sleep(sleep_time)
+        wait_time += sleep_time
+        logger.debug('Waited %s seconds for another worker to provision the file.' % wait_time)
+
+    # start download if file is not ready and it is not being downloaded
+    if not os.path.isfile(local_path) or \
+            (not os.path.isfile(local_path + '.__ready__') and not os.path.isfile(local_path + '.__downloading__')):
+        dirname = os.path.dirname(local_path)
+        try:
+            os.makedirs(dirname)
+        except OSError as e:  # Guard against race condition
+            if e.errno != errno.EEXIST:
+                raise
+
+        flags = os.O_CREAT | os.O_EXCL | os.O_WRONLY
+        try:
+            os.open(local_path + '.__downloading__', flags)  # create flag for downloading
+        except OSError as e:
+            raise
+
+        # now actual download
+        logger.debug('Downloading from: %s' % url)
+        r = requests.get(url, stream=True)
+        with open(local_path, 'wb') as f:
+            for chunk in r.iter_content(chunk_size=1024):
+                if chunk:
+                    f.write(chunk)
+
+        # update the flag to indicate file is ready
+        os.rename(local_path + '.__downloading__', local_path + '.__ready__')
+
+    if os.path.isfile(local_path) and os.path.isfile(local_path + '.__ready__'):
+        return True
+
+    # it's OK to return false, file provisioning failed
+    return False
 
 
 class Worker(object):
@@ -103,6 +159,8 @@ class Worker(object):
         time_start = int(time())
 
         self.logger.info('Worker starts to work on task: %s in job: %s' % (self.task.get('name'), self.task.get('job.id')))
+
+        self._stage_input_files()
 
         command = self._task_command_builder()
         self.logger.debug("Task command is: %s" % command)
@@ -215,20 +273,23 @@ class Worker(object):
         if not isinstance(task, dict):
             raise ValueError('Must provide task as dictionary type.')
 
-        p = re.compile("\$\{([a-zA-Z]+[a-zA-Z0-9_.]*|sep='([,.\-\s\w]+)'\s+([a-zA-Z]+[a-zA-Z0-9_.]*)?)\}")
+        p = re.compile("\$\{([a-zA-Z]+[a-zA-Z0-9_.]*|sep='([,.\-\s\w]+)'\s+([a-zA-Z]+[a-zA-Z0-9_.]*)?)\}", re.MULTILINE)
 
         command_str = task.get('command')
         input_dict = task.get('input', {})
+
+        self.logger.debug("Task raw command is: %s" % command_str)
+        self.logger.debug("Task dict is: %s" % input_dict)
 
         # parse out all variables and replace with values from input
         replaced = False
         for m in p.findall(command_str):
             if m[0].startswith('sep='):
                 sep = m[1]
-                input_var = input_dict.get(m[2]) if isinstance(input_dict.get(m[2]), list) else [input_dict.get(m[2])]
+                input_var = input_dict.get(m[2]) if isinstance(input_dict.get(m[2]), list) else [input_dict.get(m[2], '')]
                 value = sep.join(input_var)
             else:
-                value = input_dict.get(m[0])
+                value = input_dict.get(m[0], '')
 
             replaced = True
             command_str = command_str.replace("${%s}" % m[0], value, 1)
@@ -237,3 +298,46 @@ class Worker(object):
             command_str = "%s \"%s\"" % (command_str, json.dumps(task).replace('"', '\\"') if task else '')
 
         return "PATH=%s:$PATH %s" % (os.path.join(self.workflow_dir, 'workflow', 'tools'), command_str)
+
+    def _stage_input_files(self):
+        task_file_json = json.loads(self.task.get('task_file'))
+        input_ = task_file_json.get('input', {})
+
+        self.logger.debug("Before file provisioning, input: %s" % input_)
+
+        for k in input_:
+            if isinstance(input_[k], str):
+                local_path = self._provision_file(input_[k])
+                if local_path: input_[k] = local_path
+            elif isinstance(input_[k], list):
+                for i in range(input_[k]):
+                    local_path = self._provision_file(input_[k][i])
+                    if local_path: input_[k][i] = local_path
+
+        self.logger.debug("After file provisioning, input: %s" % input_)
+        task_file_json['input'] = input_
+        self._task['task_file'] = json.dumps(task_file_json)
+
+    def _provision_file(self, file_url):
+        m = re.match("\[(.+)\]((http|https)://.+)", file_url)
+        local_path, url = None, None
+
+        if m:
+            local_path, url = m.group(1), m.group(2)
+            if '${_wf_data}' in local_path:
+                local_path = local_path.replace('${_wf_data}', os.path.join(self.workflow_dir, 'data'))
+        elif file_url.startswith('http://') or file_url.startswith('https://'):
+            # TODO: need to take care when basename contains special characters,
+            #       eg, 'https://example.com/download?file=abc.txt' basename will be 'download?file=abc.txt'
+            #       do we want to hash the basename or maybe the whole url as local name?
+            local_path, url = os.path.join(self.task_dir, os.path.basename(file_url)), file_url
+        elif file_url.startswith('file://'):
+            local_path, url = file_url.replace('file://', '', 1), None
+            if not local_path.startswith('/'):
+                local_path = os.path.join(self.task_dir, local_path)
+
+        if url:  # perform the actual file previsioning
+            if not download_file(local_path, url, self.logger):
+                raise('File provisioning failed, url: %s' % url)
+
+        return local_path
