@@ -20,7 +20,10 @@ def download_file(local_path, url, logger):
     last_filesize_checks = 6
     while os.path.isfile(local_path + '.__downloading__'):
         # Need a reliable way to break out this loop if in fact no download is happening
-        file_sizes.append(os.path.getsize(local_path))
+        if os.path.isfile(local_path):
+            file_sizes.append(os.path.getsize(local_path))
+        else:
+            file_sizes.append(0)
         if len(set(file_sizes[-last_filesize_checks:])) == 1:  # in the last 6 checks, file size did not change
             logger.debug('Waited %s seconds, no file size change in the last %s seconds. ' +
                          'File seems not being downloaded. Start re-download.' %
@@ -49,11 +52,18 @@ def download_file(local_path, url, logger):
 
         # now actual download
         logger.debug('Downloading from: %s' % url)
-        r = requests.get(url, stream=True)
-        with open(local_path, 'wb') as f:
-            for chunk in r.iter_content(chunk_size=1024):
-                if chunk:
-                    f.write(chunk)
+        try:
+            r = requests.get(url, stream=True)
+            with open(local_path, 'wb') as f:
+                for chunk in r.iter_content(chunk_size=1024):
+                    if chunk:
+                        f.write(chunk)
+        except Exception as e:
+            if os.path.isfile(local_path):
+                os.remove(local_path)  # remove unfinished file
+            if os.path.isfile(local_path + '.__downloading__'):  # just in case
+                os.remove(local_path + '.__downloading__')  # remove flag
+            raise Exception(e)
 
         # update the flag to indicate file is ready
         os.rename(local_path + '.__downloading__', local_path + '.__ready__')
@@ -160,40 +170,50 @@ class Worker(object):
 
         self.logger.info('Worker starts to work on task: %s in job: %s' % (self.task.get('name'), self.task.get('job.id')))
 
-        self._stage_input_files()
+        file_provision_error = None
+        try:
+            self._stage_input_files()
+        except Exception as e:
+            file_provision_error = 'File provisioning error: %s' % str(e)
+            self.logger.debug("File provisioning failed, error: %s" % e)
 
-        command = self._task_command_builder()
-        self.logger.debug("Task command is: %s" % command)
+        if file_provision_error:
+            success = False
+            with open(os.path.join(self.task_dir, '_file_provision_err.txt'), 'a') as f:
+                f.write(file_provision_error)
+        else:
+            command = self._task_command_builder()
+            self.logger.debug("Task command is: %s" % command)
 
-        for n in range(retry + 1):
-            success = True  # assume task complete
-            if n > 0:
-                pause = 100 * 2 ** n
-                self.logger.info('Task: %s failed, retry in %s seconds; job: %s' %
-                      (self.task.get('name'), pause, self.task.get('job.id')))
-                sleep(pause)  # pause before retrying
-                self.logger.info('No %s retry on task: %s; job: %s' %
-                      (n, self.task.get('name'), self.task.get('job.id')))
-            try:
-                p = subprocess.Popen([command], stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True)
-                stdout, stderr = p.communicate()
-            except Exception as e:
-                success = False
+            for n in range(retry + 1):
+                success = True  # assume task complete
+                if n > 0:
+                    pause = 100 * 2 ** n
+                    self.logger.info('Task: %s failed, retry in %s seconds; job: %s' %
+                          (self.task.get('name'), pause, self.task.get('job.id')))
+                    sleep(pause)  # pause before retrying
+                    self.logger.info('No %s retry on task: %s; job: %s' %
+                          (n, self.task.get('name'), self.task.get('job.id')))
+                try:
+                    p = subprocess.Popen([command], stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True)
+                    stdout, stderr = p.communicate()
+                except Exception as e:
+                    success = False
 
-            if p.returncode != 0 or success is False:
-                with open(os.path.join(self.task_dir, 'stdout.txt'), 'a') as o:
-                    o.write("Run no: %s, STDOUT at: %s\n" % (n+1, int(time())))
-                    o.write(stdout.decode("utf-8"))
-                with open(os.path.join(self.task_dir, 'stderr.txt'), 'a') as e:
-                    e.write("Run no: %s, STDERR at: %s\n" % (n+1, int(time())))
-                    e.write(stderr.decode("utf-8"))
-                if 'KeyboardInterrupt' in stderr.decode("utf-8"):
-                    success = None  # task cancelled
-                    break
+                if p.returncode != 0 or success is False:
+                    with open(os.path.join(self.task_dir, 'stdout.txt'), 'a') as o:
+                        o.write("Run no: %s, STDOUT at: %s\n" % (n+1, int(time())))
+                        o.write(stdout.decode("utf-8"))
+                    with open(os.path.join(self.task_dir, 'stderr.txt'), 'a') as e:
+                        e.write("Run no: %s, STDERR at: %s\n" % (n+1, int(time())))
+                        e.write(stderr.decode("utf-8"))
+                    if 'KeyboardInterrupt' in stderr.decode("utf-8"):
+                        success = None  # task cancelled
+                        break
+                    else:
+                        success = False  # task failed
                 else:
-                    success = False  # task failed
-            else:
-                break  # success
+                    break  # success
 
         time_end = int(time())
 
@@ -239,7 +259,7 @@ class Worker(object):
             exit(2)
         else:
             self.logger.info('Task failed, task: %s, job: %s' % (task_name, job_id))
-            self.logger.info('STDERR: %s' % stderr.decode("utf-8") )
+            self.logger.info('STDERR: %s' % file_provision_error if file_provision_error else stderr.decode("utf-8"))
             self.scheduler.task_failed(job_id=job_id,
                                        task_name=task_name,
                                        output=output)
