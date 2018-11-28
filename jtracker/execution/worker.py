@@ -25,9 +25,10 @@ def download_file(local_path, url, logger):
         else:
             file_sizes.append(0)
         if len(set(file_sizes[-last_filesize_checks:])) == 1:  # in the last 6 checks, file size did not change
-            logger.debug('Waited %s seconds, no file size change in the last %s seconds. ' +
-                         'File seems not being downloaded. Start re-download.' %
-                         (wait_time, sleep_time * last_filesize_checks))
+            logger.debug('Waited %s seconds, no file size change in the last %s seconds. ' %
+                         (wait_time, sleep_time * last_filesize_checks) +
+                         'File seems not being downloaded. Start re-download.'
+                         )
             os.remove(local_path + '.__downloading__')
             break
         sleep(sleep_time)
