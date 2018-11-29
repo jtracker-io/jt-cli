@@ -24,7 +24,8 @@ def download_file(local_path, url, logger):
             file_sizes.append(os.path.getsize(local_path))
         else:
             file_sizes.append(0)
-        if len(set(file_sizes[-last_filesize_checks:])) == 1:  # in the last 6 checks, file size did not change
+        if len(file_sizes) >= last_filesize_checks and \
+                len(set(file_sizes[-last_filesize_checks:])) == 1:  # in the last 6 checks, file size did not change
             logger.debug('Waited %s seconds, no file size change in the last %s seconds. ' %
                          (wait_time, sleep_time * last_filesize_checks) +
                          'File seems not being downloaded. Start re-download.'
@@ -44,6 +45,9 @@ def download_file(local_path, url, logger):
         except OSError as e:  # Guard against race condition
             if e.errno != errno.EEXIST:
                 raise
+
+        if os.path.isfile(local_path + '.__ready__'):  # just in case ready flag is there
+            os.remove(local_path + '.__ready__')  # remove flag
 
         flags = os.O_CREAT | os.O_EXCL | os.O_WRONLY
         try:
@@ -68,6 +72,7 @@ def download_file(local_path, url, logger):
 
         # update the flag to indicate file is ready
         os.rename(local_path + '.__downloading__', local_path + '.__ready__')
+        logger.debug('Download completed for: %s' % url)
 
     if os.path.isfile(local_path) and os.path.isfile(local_path + '.__ready__'):
         return True
