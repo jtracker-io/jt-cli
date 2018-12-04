@@ -46,19 +46,22 @@ def download_file(local_path, url, logger):
             if e.errno != errno.EEXIST:
                 raise
 
-        if os.path.isfile(local_path + '.__ready__'):  # just in case ready flag is there
-            os.remove(local_path + '.__ready__')  # remove flag
-
         flags = os.O_CREAT | os.O_EXCL | os.O_WRONLY
         try:
             os.open(local_path + '.__downloading__', flags)  # create flag for downloading
         except OSError as e:
             raise
 
+        if os.path.isfile(local_path + '.__ready__'):  # just in case ready flag is there
+            os.remove(local_path + '.__ready__')  # remove flag
+
         # now actual download
         logger.debug('Downloading from: %s' % url)
         try:
             r = requests.get(url, stream=True)
+            if r.status_code >= 400:
+                raise Exception('Bad HTTP response code: %s' % r.status_code)
+
             with open(local_path, 'wb') as f:
                 for chunk in r.iter_content(chunk_size=1024):
                     if chunk:
