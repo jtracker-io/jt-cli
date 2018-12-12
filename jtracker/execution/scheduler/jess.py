@@ -1,7 +1,15 @@
+from retrying import retry
 import requests
 import json
 from jtracker.exceptions import JessNotAvailable, WRSNotAvailable, AMSNotAvailable, AccountNameNotFound
 from .base import Scheduler
+
+
+# We may need better retry mechanism, but this will do for now
+def retry_if_not_available(exception):
+    return isinstance(exception, JessNotAvailable) or \
+           isinstance(exception, WRSNotAvailable) or \
+           isinstance(exception, AMSNotAvailable)
 
 
 class JessScheduler(Scheduler):
@@ -93,6 +101,9 @@ class JessScheduler(Scheduler):
                                             queue.get('workflow.name'),
                                             queue.get('workflow.ver'))
 
+    # wait: 1, 2, 4, 8, 10, 10, 10 ... seconds up to 300 seconds (5 min)
+    @retry(retry_on_exception=retry_if_not_available, wait_exponential_multiplier=1000,
+           wait_exponential_max=10000, stop_max_delay=300000)
     def running_jobs(self, state='running'):
         # call JESS endpoint: /jobs/owner/{owner_name}/queue/{queue_id}/executor/{executor_id}
         request_url = "%s/jobs/owner/%s/queue/%s/executor/%s" % (self.jess_server.strip('/'),
@@ -107,7 +118,7 @@ class JessScheduler(Scheduler):
             raise JessNotAvailable('JESS service temporarily unavailable')
 
         if r.status_code != 200:
-            raise Exception('Unable to schedule new task')
+            raise JessNotAvailable('JESS service temporarily unavailable')
 
         try:
             jobs = json.loads(r.text)
@@ -116,6 +127,8 @@ class JessScheduler(Scheduler):
 
         return jobs
 
+    @retry(retry_on_exception=retry_if_not_available, wait_exponential_multiplier=1000,
+           wait_exponential_max=10000, stop_max_delay=300000)
     def has_next_task(self):
         request_url = "%s/tasks/owner/%s/queue/%s/executor/%s/has_next_task" % (
                                                                 self.jess_server.strip('/'),
@@ -136,6 +149,8 @@ class JessScheduler(Scheduler):
         else:
             return False
 
+    @retry(retry_on_exception=retry_if_not_available, wait_exponential_multiplier=1000,
+           wait_exponential_max=10000, stop_max_delay=300000)
     def next_task(self, job_id=None, job_state=None):
         # job_id is ignored for now
 
@@ -156,11 +171,13 @@ class JessScheduler(Scheduler):
             raise JessNotAvailable('JESS service temporarily unavailable')
 
         if r.status_code != 200:  # need a special response for failed job
-            raise Exception('Unable to schedule new task')
+            return json.loads('{}')  # return an empty task instead of error out, this will keep executor going
 
         rv = r.text if r.text else '{}'
         return json.loads(rv)
 
+    @retry(retry_on_exception=retry_if_not_available, wait_exponential_multiplier=1000,
+           wait_exponential_max=10000, stop_max_delay=300000)
     def _task_ended(self, job_id, task_name, output=None, success=True):
         if output is None:
             output = dict()
@@ -197,6 +214,8 @@ class JessScheduler(Scheduler):
     def task_failed(self, job_id, task_name, output):
         self._task_ended(job_id, task_name, output=output, success=False)
 
+    @retry(retry_on_exception=retry_if_not_available, wait_exponential_multiplier=1000,
+           wait_exponential_max=10000, stop_max_delay=300000)
     def get_workflow(self):
         request_url = "%s/workflows/id/%s/ver/%s" % (self.wrs_server.strip('/'),
                                                      self.workflow_id, self.workflow_version)
@@ -204,7 +223,7 @@ class JessScheduler(Scheduler):
         try:
             r = requests.get(url=request_url)
         except:
-            raise WRSNotAvailable('JESS service temporarily unavailable')
+            raise WRSNotAvailable('WRS service temporarily unavailable')
 
         try:
             workflow = json.loads(r.text)
@@ -215,6 +234,8 @@ class JessScheduler(Scheduler):
 
         return workflow
 
+    @retry(retry_on_exception=retry_if_not_available, wait_exponential_multiplier=1000,
+           wait_exponential_max=10000, stop_max_delay=300000)
     def register_executor(self, node_id):
         # JESS endpoint: /executors/owner/{owner_name}/queue/{queue_id}/node/{node_id}
 
@@ -223,14 +244,17 @@ class JessScheduler(Scheduler):
 
         try:
             r = requests.post(url=request_url)
-            self._executor_id = json.loads(r.text).get('id')  # executor id from the server
-            return self.executor_id
         except:
             raise JessNotAvailable('JESS service temporarily unavailable')
 
         if r.status_code != 200:
             raise Exception(r.text)
 
+        self._executor_id = json.loads(r.text).get('id')  # executor id from the server
+        return self.executor_id
+
+    @retry(retry_on_exception=retry_if_not_available, wait_exponential_multiplier=1000,
+           wait_exponential_max=10000, stop_max_delay=300000)
     def _get_owner_id_by_name(self, owner_name):
         request_url = '%s/accounts/%s' % (self.ams_server.strip('/'), owner_name)
         try:
@@ -243,6 +267,8 @@ class JessScheduler(Scheduler):
 
         return json.loads(r.text).get('id')
 
+    @retry(retry_on_exception=retry_if_not_available, wait_exponential_multiplier=1000,
+           wait_exponential_max=10000, stop_max_delay=300000)
     def cancel_job(self, job_id=None):
         # call JESS endpoint: /jobs/owner/{owner_name}/queue/{queue_id}/job/{job_id}/action
         request_body = {
@@ -260,6 +286,8 @@ class JessScheduler(Scheduler):
 
         print('Job: %s cancelled' % job_id)
 
+    @retry(retry_on_exception=retry_if_not_available, wait_exponential_multiplier=1000,
+           wait_exponential_max=10000, stop_max_delay=300000)
     def suspend_job(self, job_id=None):
         # call JESS endpoint: /jobs/owner/{owner_name}/queue/{queue_id}/job/{job_id}/action
         request_body = {
@@ -277,7 +305,8 @@ class JessScheduler(Scheduler):
 
         print('Job: %s suspended' % job_id)
 
-
+    @retry(retry_on_exception=retry_if_not_available, wait_exponential_multiplier=1000,
+           wait_exponential_max=10000, stop_max_delay=300000)
     def resume_job(self, job_id=None):
         # call JESS endpoint: /jobs/owner/{owner_name}/queue/{queue_id}/job/{job_id}/action
         request_body = {

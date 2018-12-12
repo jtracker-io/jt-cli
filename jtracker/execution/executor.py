@@ -234,16 +234,18 @@ class Executor(object):
                            'running job (if any) ...')
                 break
 
+            running_jobs, running_workers = self._get_run_status()
+
             # check whether workdir has enough disk space to continue
             if not self._enough_disk():
                 if self.continuous_run:
                     self.logger.info('No enough disk space, will start new job when enough space is available.')
-                    self.logger.info("Current running jobs: %s, running tasks: %s" % self._get_run_status())
+                    self.logger.info("Current running jobs: %s, running tasks: %s" % (running_jobs, running_workers))
                     sleep(self.polling_interval)  # TODO: may want to have a smarter wait intervals
                     continue
                 else:
                     self.logger.info('No enough disk space, exit after finishing current running job (if any) ...')
-                    self.logger.info("Current running jobs: %s, running tasks: %s" % self._get_run_status())
+                    self.logger.info("Current running jobs: %s, running tasks: %s" % (running_jobs, running_workers))
                     break
 
             if self.max_jobs and self.ran_jobs >= self.max_jobs:
@@ -254,13 +256,13 @@ class Executor(object):
                            )
                 break
 
-            if self.scheduler.running_jobs() and len(self.scheduler.running_jobs()) >= self.parallel_jobs:
+            if running_jobs >= self.parallel_jobs:
                 # basically we check again to see if running jobs drop to under the parallel limit
                 # detail: we need to worry about possible run-away job, job appears to be running but worker died
                 #         already, is that possible if executor is still alive? Can executor report the state of a
                 #         task ran by a worker whose process exited with error?
                 self.logger.info('Reached limit for parallel running jobs, will start new job after completing a current job.')
-                self.logger.info("Current running jobs: %s, running tasks: %s" % self._get_run_status())
+                self.logger.info("Current running jobs: %s, running tasks: %s" % (running_jobs, running_workers))
 
                 sleep(self.polling_interval)
                 continue
