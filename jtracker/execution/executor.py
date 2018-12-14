@@ -50,7 +50,8 @@ class Executor(object):
                  job_file=None,  # when job_file is provided, it's local mode, no tracking from the server side
                  job_id=None,  # can optionally specify which job to run, not applicable when job_file specified
                  min_disk=None, # minimally require disk space (in bytes) for launching task execution
-                 parallel_jobs=1, parallel_workers=1, polling_interval=10, max_jobs=0, continuous_run=False,
+                 parallel_jobs=1, parallel_workers=1, polling_interval=10, max_jobs=0,
+                 continuous_run=True, retries=2,
                  force_restart=False, resume_job=False, logger=None):
 
         self._killer = GracefulKiller(logger)
@@ -68,6 +69,7 @@ class Executor(object):
         self._polling_interval = polling_interval
         self._ran_jobs = 0
         self._continuous_run = continuous_run
+        self._retries = retries
         self._force_restart = force_restart
         self._resume_job = resume_job
 
@@ -87,6 +89,7 @@ class Executor(object):
                                             )
 
             self._account_id = self.scheduler.account_id
+            self._jt_account = jt_account
 
             # init jt_home dir
             self._init_jt_home()
@@ -206,6 +209,10 @@ class Executor(object):
         return self._continuous_run
 
     @property
+    def retries(self):
+        return self._retries
+
+    @property
     def force_restart(self):
         return self._force_restart
 
@@ -267,7 +274,7 @@ class Executor(object):
                 sleep(self.polling_interval)
                 continue
 
-            worker = Worker(jt_home=self.jt_home, account_id=self.account_id,
+            worker = Worker(jt_home=self.jt_home, account_id=self.account_id, retries=self.retries,
                             scheduler=self.scheduler, node_id=self.node_id, logger=self.logger)
 
             # get a task from a new job, break if no task returned, which suggests there is no more job
@@ -313,7 +320,7 @@ class Executor(object):
                 if not running_workers < self.parallel_workers:
                     continue
 
-                worker = Worker(jt_home=self.jt_home, account_id=self.account_id,
+                worker = Worker(jt_home=self.jt_home, account_id=self.account_id, retries=self.retries,
                                 scheduler=self.scheduler, node_id=self.node_id, logger=self.logger)
 
                 task = worker.next_task(job_state='running')  # get next task in the current running jobs

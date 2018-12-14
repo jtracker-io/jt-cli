@@ -85,11 +85,12 @@ def download_file(local_path, url, logger):
 
 
 class Worker(object):
-    def __init__(self, jt_home=None, account_id=None, scheduler=None, node_id=None, logger=None):
+    def __init__(self, jt_home=None, account_id=None, retries=2, scheduler=None, node_id=None, logger=None):
         self._id = str(uuid4())
         self._jt_home = jt_home
         self._account_id = account_id
         self._node_id = node_id
+        self._retries = retries
         self._scheduler = scheduler
         self._task = None
         self._logger = logger
@@ -125,6 +126,10 @@ class Worker(object):
     @property
     def workflow_version(self):
         return self.scheduler.workflow_version
+
+    @property
+    def retries(self):
+        return self._retries
 
     @property
     def node_id(self):
@@ -168,7 +173,7 @@ class Worker(object):
         self._task = self.scheduler.next_task(job_state=job_state)
         return self.task
 
-    def run(self, retry=2):
+    def run(self):
         # get
         if not self.task:
             raise Exception("Must first get a task before calling 'run'")
@@ -194,7 +199,7 @@ class Worker(object):
             command = self._task_command_builder()
             self.logger.debug("Task command is: %s" % command)
 
-            for n in range(retry + 1):
+            for n in range(self.retries + 1):
                 success = True  # assume task complete
                 if n > 0:
                     pause = 100 * 2 ** n
