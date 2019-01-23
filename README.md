@@ -13,6 +13,7 @@ HPC node, or may be just your laptop, or all of them at the same time.
 ```
 # JTracker cli requires Python3
 # install pip3 if not installed already, for Debian or Ubuntu platform do this:
+sudo apt-get update
 sudo apt-get install python3-pip
 
 # install jtracker
@@ -30,9 +31,6 @@ test run should give you a clear picture how JTracker is designed and how it may
 **Before proceeding further, please make sure you have installed (or upgraded to) the latest version of JT-CLI tool.**
 
 This test run uses a demo JT server running at https://jtracker.io.
-
-You can also set up your own JTracker Server using Docker Compose, to do so please follow instructions
-at: https://github.com/jtracker-io/jt-server-deploy.
 
 Note: please **do not** upload sensitive data when following along the steps.
 
@@ -94,7 +92,7 @@ Now you are ready to add some jobs to the new queue.
 ```
 # remember to replace '00e2b2e4-f2dc-420a-bb2d-3df6a7984cc3' with your own queue ID
 jt job add -q 00e2b2e4-f2dc-420a-bb2d-3df6a7984cc3 -j '{
-  "webpage_url": "https://dzone.com/cloud-computing-tutorials-tools-news",
+  "webpage": "https://dzone.com/cloud-computing-tutorials-tools-news",
   "words": [ "Cloud", "Docker", "Kubernetes", "OpenStack" ]
 }'
 ```
@@ -108,7 +106,7 @@ Finally, let's launch a JT executor to run those jobs.
 
 ```
 # again, replace '00e2b2e4-f2dc-420a-bb2d-3df6a7984cc3' with your own queue ID
-jt exec run -q 00e2b2e4-f2dc-420a-bb2d-3df6a7984cc3
+jt -V debug exec run -q 00e2b2e4-f2dc-420a-bb2d-3df6a7984cc3 -t 0  # -t 0 disables auto retry on task failure
 ```
 
 This will launch an executor that will pull and run jobs from queue `00e2b2e4-f2dc-420a-bb2d-3df6a7984cc3`. Current
