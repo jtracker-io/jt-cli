@@ -362,11 +362,14 @@ class Worker(object):
             local_path, url = m.group(1), m.group(2)
             if '${_wf_data}' in local_path:
                 local_path = local_path.replace('${_wf_data}', os.path.join(self.workflow_dir, 'data'))
-        elif file_url.startswith('http://') or file_url.startswith('https://'):
-            # TODO: need to take care when basename contains special characters,
-            #       eg, 'https://example.com/download?file=abc.txt' basename will be 'download?file=abc.txt'
-            #       do we want to hash the basename or maybe the whole url as local name?
-            local_path, url = os.path.join(self.task_dir, os.path.basename(file_url)), file_url
+
+        # comment this out, as we prefer only provision the file when local_path is provided
+        # elif file_url.startswith('http://') or file_url.startswith('https://'):
+        #    # TODO: need to take care when basename contains special characters,
+        #    #       eg, 'https://example.com/download?file=abc.txt' basename will be 'download?file=abc.txt'
+        #    #       do we want to hash the basename or maybe the whole url as local name?
+        #    local_path, url = os.path.join(self.task_dir, os.path.basename(file_url)), file_url
+
         elif file_url.startswith('file://'):
             local_path, url = file_url.replace('file://', '', 1), None
             if not local_path.startswith('/'):
