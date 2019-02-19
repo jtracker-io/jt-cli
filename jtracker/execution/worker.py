@@ -85,11 +85,13 @@ def download_file(local_path, url, logger):
 
 
 class Worker(object):
-    def __init__(self, jt_home=None, account_id=None, retries=2, scheduler=None, node_id=None, logger=None):
+    def __init__(self, jt_home=None, account_id=None, retries=2,
+                 scheduler=None, node_id=None, node_ip=None, logger=None):
         self._id = str(uuid4())
         self._jt_home = jt_home
         self._account_id = account_id
         self._node_id = node_id
+        self._node_ip = node_ip
         self._retries = retries
         self._scheduler = scheduler
         self._task = None
@@ -134,6 +136,10 @@ class Worker(object):
     @property
     def node_id(self):
         return self._node_id
+
+    @property
+    def node_ip(self):
+        return self._node_ip
 
     @property
     def node_dir(self):
@@ -214,13 +220,15 @@ class Worker(object):
                 except Exception as e:
                     success = False
 
+                # log the stdout/stderr
+                with open(os.path.join(self.task_dir, 'stdout.txt'), 'a') as o:
+                    o.write("Run no: %s, STDOUT at: %s\n" % (n + 1, int(time())))
+                    o.write(stdout.decode("utf-8"))
+                with open(os.path.join(self.task_dir, 'stderr.txt'), 'a') as e:
+                    e.write("Run no: %s, STDERR at: %s\n" % (n + 1, int(time())))
+                    e.write(stderr.decode("utf-8"))
+
                 if p.returncode != 0 or success is False:
-                    with open(os.path.join(self.task_dir, 'stdout.txt'), 'a') as o:
-                        o.write("Run no: %s, STDOUT at: %s\n" % (n+1, int(time())))
-                        o.write(stdout.decode("utf-8"))
-                    with open(os.path.join(self.task_dir, 'stderr.txt'), 'a') as e:
-                        e.write("Run no: %s, STDERR at: %s\n" % (n+1, int(time())))
-                        e.write(stderr.decode("utf-8"))
                     if 'KeyboardInterrupt' in stderr.decode("utf-8"):
                         success = None  # task cancelled
                         break
@@ -250,6 +258,7 @@ class Worker(object):
             'workflow_id': self.workflow_id,
             'queue_id': self.queue_id,
             'node_id': self.node_id,
+            'node_ip': self.node_ip,
             'task_dir': self.task_dir,
             'state': 'completed' if success else 'failed' if success is False else 'cancelled',
             'wall_time': {
@@ -362,6 +371,8 @@ class Worker(object):
             local_path, url = m.group(1), m.group(2)
             if '${_wf_data}' in local_path:
                 local_path = local_path.replace('${_wf_data}', os.path.join(self.workflow_dir, 'data'))
+            else:
+                local_path = os.path.join(self.task_dir, local_path)
 
         # comment this out, as we prefer only provision the file when local_path is provided
         # elif file_url.startswith('http://') or file_url.startswith('https://'):

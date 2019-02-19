@@ -236,14 +236,17 @@ class JessScheduler(Scheduler):
 
     @retry(retry_on_exception=retry_if_not_available, wait_exponential_multiplier=1000,
            wait_exponential_max=10000, stop_max_delay=300000)
-    def register_executor(self, node_id):
+    def register_executor(self, node_id, node_ip=None):
         # JESS endpoint: /executors/owner/{owner_name}/queue/{queue_id}/node/{node_id}
 
         request_url = "%s/executors/owner/%s/queue/%s/node/%s" % (self.jess_server.strip('/'),
                                                           self.jt_account, self.queue_id, node_id)
 
+        node_info = {}
+        if node_ip: node_info['node_ip'] = node_ip
+
         try:
-            r = requests.post(url=request_url)
+            r = requests.post(url=request_url, json=node_info)
         except:
             raise JessNotAvailable('JESS service temporarily unavailable')
 

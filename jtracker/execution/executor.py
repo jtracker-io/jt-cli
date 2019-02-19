@@ -10,12 +10,24 @@ import errno
 import yaml
 import click
 import signal
+import socket
 import multiprocessing
 from time import sleep
 from uuid import uuid4
 from .scheduler import JessScheduler
 from .scheduler import LocalScheduler
 from .worker import Worker
+
+
+def get_node_ip():
+    try:
+        return [ip for ip in socket.gethostbyname_ex(socket.gethostname())[2] if not ip.startswith("127.")][:1][0]
+    except:
+        try:
+            return [(s.connect(('8.8.8.8', 53)), s.getsockname()[0], s.close())
+                        for s in [socket.socket(socket.AF_INET, socket.SOCK_DGRAM)]][0][1]
+        except:
+            return '127.0.0.1'
 
 
 class GracefulKiller:
@@ -76,6 +88,7 @@ class Executor(object):
         self._running_jobs = []
         self._worker_processes = {}
         self._logger = logger
+        self._node_ip = get_node_ip()
 
         # params for server mode
         if self.queue_id and job_file is None:
@@ -129,6 +142,10 @@ class Executor(object):
     @property
     def id(self):
         return self._id
+
+    @property
+    def node_ip(self):
+        return self._node_ip
 
     @property
     def logger(self):
@@ -275,7 +292,7 @@ class Executor(object):
                 continue
 
             worker = Worker(jt_home=self.jt_home, account_id=self.account_id, retries=self.retries,
-                            scheduler=self.scheduler, node_id=self.node_id, logger=self.logger)
+                            scheduler=self.scheduler, node_id=self.node_id, node_ip=self.node_ip, logger=self.logger)
 
             # get a task from a new job, break if no task returned, which suggests there is no more job
             if not worker.next_task(job_state='queued'):
@@ -321,7 +338,7 @@ class Executor(object):
                     continue
 
                 worker = Worker(jt_home=self.jt_home, account_id=self.account_id, retries=self.retries,
-                                scheduler=self.scheduler, node_id=self.node_id, logger=self.logger)
+                                scheduler=self.scheduler, node_id=self.node_id, node_ip=self.node_ip, logger=self.logger)
 
                 task = worker.next_task(job_state='running')  # get next task in the current running jobs
 
@@ -399,11 +416,11 @@ class Executor(object):
         # initial it if needed
         node_info_file = os.path.join(self.node_dir,'info.yaml')
 
-        if os.path.isfile(node_info_file):
+        if os.path.isfile(node_info_file):  # if info.yaml exists, use everything in it
             with open(node_info_file, 'r') as f:
                 node_info = yaml.load(f)
         else:  # not exist
-            node_info = {'id': str(uuid4())}  # may need to add other information
+            node_info = {'id': str(uuid4()), 'node_ip': self.node_ip}  # may need to add other information
             try:
                 os.makedirs(self.node_dir)
             except OSError as exc:  # Guard against race condition
@@ -413,6 +430,7 @@ class Executor(object):
                 f.write(yaml.dump(node_info, default_flow_style=False))
 
         self._node_id = node_info.get('id')
+        self._node_ip = node_info.get('node_ip')
 
     def _init_workflow_dir(self):
         try:
