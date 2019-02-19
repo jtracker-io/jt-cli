@@ -17,6 +17,7 @@ def job_json_to_tsv(job_json, with_task=False):
             task_file = json.loads(task.get('task_file'))
             executor_id = '_null_'
             node_id = '_null_'
+            node_ip = '_null_'
             task_run_num = '_null_'
             task_end_at = '_null_'
             task_len = '_null_'
