@@ -372,7 +372,7 @@ class Worker(object):
             if '${_wf_data}' in local_path:
                 local_path = local_path.replace('${_wf_data}', os.path.join(self.workflow_dir, 'data'))
             else:
-                local_path = os.path.join(self.task_dir, local_path)
+                local_path = os.path.join(self.job_dir, 'data', local_path)  # job level data
 
         # comment this out, as we prefer only provision the file when local_path is provided
         # elif file_url.startswith('http://') or file_url.startswith('https://'):
