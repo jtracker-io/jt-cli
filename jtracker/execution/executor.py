@@ -107,7 +107,7 @@ class Executor(object):
             # init jt_home dir
             self._init_jt_home()
 
-            self._id = self.scheduler.register_executor(self.node_id)  # reset executor ID to what server side return
+            self._id = self.scheduler.register_executor(self.node_id, self.node_ip)  # reset executor ID to what server side return
 
         # local mode if supplied, local mode does NOT work
         elif job_file and self.queue_id is None:
