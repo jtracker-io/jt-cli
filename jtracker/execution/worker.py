@@ -126,6 +126,10 @@ class Worker(object):
         return self.scheduler.workflow_id
 
     @property
+    def workflow_name(self):
+        return self.scheduler.workflow_name
+
+    @property
     def workflow_version(self):
         return self.scheduler.workflow_version
 
@@ -316,10 +320,19 @@ class Worker(object):
         if not isinstance(task, dict):
             raise ValueError('Must provide task as dictionary type.')
 
-        p = re.compile("\$\{([a-zA-Z]+[a-zA-Z0-9_.]*|sep='([,.\-\s\w]+)'\s+([a-zA-Z]+[a-zA-Z0-9_.]*)?)\}", re.MULTILINE)
+        p = re.compile("\$\{([_a-zA-Z]+[a-zA-Z0-9_.]*|sep='([,.\-\s\w]+)'\s+([a-zA-Z]+[a-zA-Z0-9_.]*)?)\}", re.MULTILINE)
 
         command_str = task.get('command')
         input_dict = task.get('input', {})
+
+        # let's inject system variables to input dict
+        input_dict.update({
+            '_wf_id': self.workflow_id,
+            '_wf_name': self.workflow_name,
+            '_wf_version': self.workflow_version,
+            '_job_id': self.task.get('job.id'),
+            '_jt_exec_version': ver,
+        })
 
         self.logger.debug("Task raw command is: %s" % command_str)
         self.logger.debug("Task dict is: %s" % input_dict)
