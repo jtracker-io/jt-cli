@@ -347,6 +347,11 @@ class Worker(object):
             else:
                 value = input_dict.get(m[0], '')
 
+            try:
+                value = str(value)
+            except:
+                value = ''
+
             replaced = True
             command_str = command_str.replace("${%s}" % m[0], value, 1)
 
