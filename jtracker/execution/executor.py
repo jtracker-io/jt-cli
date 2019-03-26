@@ -60,7 +60,7 @@ class Executor(object):
                  queue_id=None,
                  workflow_name=None,
                  job_file=None,  # when job_file is provided, it's local mode, no tracking from the server side
-                 job_id=None,  # can optionally specify which job to run, not applicable when job_file specified
+                 job_selector=None,  # can optionally specify which job to run, not applicable when job_file specified
                  min_disk=None, # minimally require disk space (in bytes) for launching task execution
                  parallel_jobs=1, parallel_workers=1, polling_interval=10, max_jobs=0,
                  continuous_run=True, retries=2,
@@ -98,7 +98,6 @@ class Executor(object):
                                             ams_server=ams_server,
                                             jt_account=jt_account,
                                             queue_id=queue_id,
-                                            job_id=job_id,  # optionally specify which job to run
                                             )
 
             self._account_id = self.scheduler.account_id
@@ -108,6 +107,12 @@ class Executor(object):
             self._init_jt_home()
 
             self._id = self.scheduler.register_executor(self.node_id, self.node_ip)  # reset executor ID to what server side return
+
+            # update job selector if supplied
+            if job_selector is not None:
+                self.scheduler.update_executor(action={
+                    'job_selector': job_selector
+                })
 
         # local mode if supplied, local mode does NOT work
         elif job_file and self.queue_id is None:
