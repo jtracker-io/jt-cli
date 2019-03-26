@@ -4,15 +4,19 @@ import requests
 
 @click.command()
 @click.option('-o', '--owner', help='Owner account name')
+@click.option('-q', '--queue-id', help='Job queue ID')
 @click.pass_context
-def ls(ctx, owner):
+def ls(ctx, owner, queue_id):
     """
     Listing workflow queues
     """
     jess_url = ctx.obj.get('JT_CONFIG').get('jess_server')
-    owner = owner if owner else ctx.obj.get('JT_CONFIG').get('jt_account')
+    if not owner:
+        owner = ctx.obj.get('JT_CONFIG').get('jt_account')
 
     url = "%s/queues/owner/%s" % (jess_url, owner)
+    if queue_id:
+        url += '/queue/%s' % queue_id
 
     r = requests.get(url)
 

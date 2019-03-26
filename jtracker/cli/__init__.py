@@ -203,6 +203,8 @@ def exec(ctx):
 
 # exec subcommands
 exec.add_command(exec_commands.run)
+exec.add_command(exec_commands.ls)
+exec.add_command(exec_commands.selector)
 
 
 if __name__ == '__main__':

@@ -17,7 +17,7 @@ class JessScheduler(Scheduler):
     Scheduler backed by JTracker Job Execution and Scheduling Services
     """
     def __init__(self, jess_server=None, wrs_server=None, ams_server=None, jt_account=None,
-                 queue_id=None, job_id=None):
+                 queue_id=None):
 
         super().__init__(mode='sever')
 
@@ -27,7 +27,6 @@ class JessScheduler(Scheduler):
         self._jt_account = jt_account
         self._account_id = self._get_owner_id_by_name(jt_account)
         self._queue_id = queue_id
-        self._job_id = job_id
         self._executor_id = None
         self._get_workflow_info()
 
@@ -255,6 +254,26 @@ class JessScheduler(Scheduler):
 
         self._executor_id = json.loads(r.text).get('id')  # executor id from the server
         return self.executor_id
+
+    @retry(retry_on_exception=retry_if_not_available, wait_exponential_multiplier=1000,
+           wait_exponential_max=10000, stop_max_delay=300000)
+    def update_executor(self, action=None):
+        if not action:
+            return
+
+        # endpoint: /executors/owner/{owner_name}/queue/{queue_id}/executor/{executor_id}/action
+        request_url = "%s/executors/owner/%s/queue/%s/executor/%s/action" % \
+                      (self.jess_server.strip('/'), self.jt_account, self.queue_id, self.executor_id)
+
+        try:
+            r = requests.put(url=request_url, json=action)
+        except Exception as e:
+            raise JessNotAvailable('JESS service temporarily unavailable: %s' % e)
+
+        if r.status_code != 202:
+            raise Exception(r.text)
+        else:
+            return r.text
 
     @retry(retry_on_exception=retry_if_not_available, wait_exponential_multiplier=1000,
            wait_exponential_max=10000, stop_max_delay=300000)
