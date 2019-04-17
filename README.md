@@ -92,7 +92,7 @@ Now you are ready to add some jobs to the new queue.
 ```
 # remember to replace '00e2b2e4-f2dc-420a-bb2d-3df6a7984cc3' with your own queue ID
 jt job add -q 00e2b2e4-f2dc-420a-bb2d-3df6a7984cc3 -j '{
-  "webpage": "https://dzone.com/cloud-computing-tutorials-tools-news",
+  "webpage": "[webpage.html]https://dzone.com/cloud-computing-tutorials-tools-news",
   "words": [ "Cloud", "Docker", "Kubernetes", "OpenStack" ]
 }'
 ```
@@ -126,7 +126,7 @@ decrease worker nodes on which JT executor runs.
 
 ### Check job status and output
 
-If the executor is still running, you can perform the following commands in a different terminal.
+If the executor is still running, you can perform the following commands in a different terminal. To stop an running executor, simply cancel it with `Control-C`.
 
 Get job status in queue `09360ea8-748a-4a8d-9b55-16b5b7278069`.
 ```
